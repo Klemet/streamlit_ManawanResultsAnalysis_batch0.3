@@ -17,7 +17,7 @@ This script is under the format of a Streamlit app.
 
 import sys, os, glob, re
 import pandas as pd
-from osgeo import gdal
+# from osgeo import gdal
 import numpy as np
 import math
 import pickle
