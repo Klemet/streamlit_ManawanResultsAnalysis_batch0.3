@@ -66,52 +66,52 @@ if not check_password():
 
 #%% DEFINING FUNCTIONS
 
-def getRasterData(path):
-    raster = gdal.Open(path)
-    rasterData = raster.GetRasterBand(1)
-    rasterData = rasterData.ReadAsArray()
-    rasterData - rasterData.astype('float64')
-    return(np.array(rasterData))
+# def getRasterData(path):
+#     raster = gdal.Open(path)
+#     rasterData = raster.GetRasterBand(1)
+#     rasterData = rasterData.ReadAsArray()
+#     rasterData - rasterData.astype('float64')
+#     return(np.array(rasterData))
 
-def getRasterDataAsList(path):
-    return(getRasterData(path).tolist())
+# def getRasterDataAsList(path):
+#     return(getRasterData(path).tolist())
 
-def writeNewRasterData(rasterDataArray, pathOfTemplateRaster, pathOfOutput):
-    # Saves a raster in int16 with a nodata value of 0
-    # Inspired from https://gis.stackexchange.com/questions/164853/reading-modifying-and-writing-a-geotiff-with-gdal-in-python
-    # Loading template raster
-    template = gdal.Open(pathOfTemplateRaster)
-    driver = gdal.GetDriverByName("GTiff")
-    [rows, cols] = template.GetRasterBand(1).ReadAsArray().shape
-    outputRaster = driver.Create(pathOfOutput, cols, rows, 1, gdal.GDT_Int16)
-    outputRaster.SetGeoTransform(template.GetGeoTransform())##sets same geotransform as input
-    outputRaster.SetProjection(template.GetProjection())##sets same projection as input
-    outputRaster.GetRasterBand(1).WriteArray(rasterDataArray)
-    outputRaster.GetRasterBand(1).SetNoDataValue(0)##if you want these values transparent
-    outputRaster.FlushCache() ##saves to disk!!
-    outputRaster = None
+# def writeNewRasterData(rasterDataArray, pathOfTemplateRaster, pathOfOutput):
+#     # Saves a raster in int16 with a nodata value of 0
+#     # Inspired from https://gis.stackexchange.com/questions/164853/reading-modifying-and-writing-a-geotiff-with-gdal-in-python
+#     # Loading template raster
+#     template = gdal.Open(pathOfTemplateRaster)
+#     driver = gdal.GetDriverByName("GTiff")
+#     [rows, cols] = template.GetRasterBand(1).ReadAsArray().shape
+#     outputRaster = driver.Create(pathOfOutput, cols, rows, 1, gdal.GDT_Int16)
+#     outputRaster.SetGeoTransform(template.GetGeoTransform())##sets same geotransform as input
+#     outputRaster.SetProjection(template.GetProjection())##sets same projection as input
+#     outputRaster.GetRasterBand(1).WriteArray(rasterDataArray)
+#     outputRaster.GetRasterBand(1).SetNoDataValue(0)##if you want these values transparent
+#     outputRaster.FlushCache() ##saves to disk!!
+#     outputRaster = None
     
-def writeNewRasterDataFloat32(rasterDataArray, pathOfTemplateRaster, pathOfOutput):
-    # Saves a raster in Float32 with a nodata value of 0.0
-    # Inspired from https://gis.stackexchange.com/questions/164853/reading-modifying-and-writing-a-geotiff-with-gdal-in-python
-    # Loading template raster
-    template = gdal.Open(pathOfTemplateRaster)
-    driver = gdal.GetDriverByName("GTiff")
-    [rows, cols] = template.GetRasterBand(1).ReadAsArray().shape
-    outputRaster = driver.Create(pathOfOutput, cols, rows, 1, gdal.GDT_Float32)
-    outputRaster.SetGeoTransform(template.GetGeoTransform())##sets same geotransform as input
-    outputRaster.SetProjection(template.GetProjection())##sets same projection as input
-    outputRaster.GetRasterBand(1).WriteArray(rasterDataArray)
-    outputRaster.GetRasterBand(1).SetNoDataValue(-1)##if you want these values transparent
-    outputRaster.FlushCache() ##saves to disk!!
-    outputRaster = None
+# def writeNewRasterDataFloat32(rasterDataArray, pathOfTemplateRaster, pathOfOutput):
+#     # Saves a raster in Float32 with a nodata value of 0.0
+#     # Inspired from https://gis.stackexchange.com/questions/164853/reading-modifying-and-writing-a-geotiff-with-gdal-in-python
+#     # Loading template raster
+#     template = gdal.Open(pathOfTemplateRaster)
+#     driver = gdal.GetDriverByName("GTiff")
+#     [rows, cols] = template.GetRasterBand(1).ReadAsArray().shape
+#     outputRaster = driver.Create(pathOfOutput, cols, rows, 1, gdal.GDT_Float32)
+#     outputRaster.SetGeoTransform(template.GetGeoTransform())##sets same geotransform as input
+#     outputRaster.SetProjection(template.GetProjection())##sets same projection as input
+#     outputRaster.GetRasterBand(1).WriteArray(rasterDataArray)
+#     outputRaster.GetRasterBand(1).SetNoDataValue(-1)##if you want these values transparent
+#     outputRaster.FlushCache() ##saves to disk!!
+#     outputRaster = None
 
-def writeExistingRasterData(rasterDataArray, pathOfRasterToEdit):
-    # Edits the data of an existing raster
-    rasterToEdit = gdal.Open(pathOfRasterToEdit, gdal.GF_Write)
-    rasterToEdit.GetRasterBand(1).WriteArray(rasterDataArray)
-    rasterToEdit.FlushCache() ##saves to disk!!
-    rasterToEdit = None
+# def writeExistingRasterData(rasterDataArray, pathOfRasterToEdit):
+#     # Edits the data of an existing raster
+#     rasterToEdit = gdal.Open(pathOfRasterToEdit, gdal.GF_Write)
+#     rasterToEdit.GetRasterBand(1).WriteArray(rasterDataArray)
+#     rasterToEdit.FlushCache() ##saves to disk!!
+#     rasterToEdit = None
 
 # From https://pynative.com/python-write-list-to-file/
 # write list to binary file
@@ -463,8 +463,8 @@ st.altair_chart(chartsCurvesAndConfidence, use_container_width=True)
 # CHARTS WITH INTERACTIVE LEGEND TO ISOLATE LINES BY OPACITY
 # https://github.com/altair-viz/altair/issues/984#issuecomment-591978609
 
-
-
+# ADDING GDAL AS REQUIREMENT
+# Must install gdal as external package and then as requirement ? See https://docs.streamlit.io/streamlit-community-cloud/deploy-your-app/app-dependencies
 
 
 
