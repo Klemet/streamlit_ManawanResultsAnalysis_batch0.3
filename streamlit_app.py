@@ -321,13 +321,13 @@ if 'dictOfValuesForBasicMeasures' not in st.session_state:
 variableList = st.session_state.dictOfValuesForBasicMeasures.keys()
 char_to_remove = ' - '
 variableList = [s.split(char_to_remove)[0] for s in variableList]
-variableList = set(variableList)
+variableList = sorted(list(set(variableList)))
 
 # We make the list of familly territories
 famillyAreasNames = st.session_state.dictOfValuesForBasicMeasures.keys()
 char_to_remove = ' - '
 famillyAreasNames = [s.split(char_to_remove)[1] for s in famillyAreasNames]
-famillyAreasNames = set(famillyAreasNames)
+famillyAreasNames = sorted(list(set(famillyAreasNames)))
 
 # Dictionnary of variables units
 variableUnit = dict()
