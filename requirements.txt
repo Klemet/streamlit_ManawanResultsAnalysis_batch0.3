@@ -1,0 +1,7 @@
+pandas
+osgeo
+numpy
+pickle
+altair
+hmac
+cryptography
