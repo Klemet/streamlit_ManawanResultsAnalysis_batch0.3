@@ -17,7 +17,7 @@ This script is under the format of a Streamlit app.
 
 import sys, os, glob, re
 import pandas as pd
-# from osgeo import gdal
+from osgeo import gdal
 import numpy as np
 import math
 import pickle
@@ -294,6 +294,55 @@ def CreateDictionnaryOfMeanAndStandardDeviation(timesteps,
 
     return dictOfValuesForBasicMeasures
 
+#%% PLOTTING FUNCTIONS
+
+def CreateAltairChartWithMeanAndSD(listOfTimesteps,
+                                   listOfDataSeriesNames,
+                                   listOfMeanDataSeries,
+                                   listOfSDSeries,
+                                   listOfColors,
+                                   variableName):
+    """Given a list of mean data series + list of SD,
+    returns an altair chart layer superposing all of the curves +
+    standard deviation areas around them.
+    ListOfColors must same length as listOfMeanDataSeries and listOfSDSeries."""
+    # We put everything as data frames
+    listOfDataFrames = list()
+    for i in range(0, len(listOfMeanDataSeries)):
+        dataFrame = pd.DataFrame({'x': listOfTimesteps,
+                                  'y': listOfMeanDataSeries[i],
+                                  'y_upper': [x + y for x, y in zip(listOfMeanDataSeries[i], listOfSDSeries[i])],
+                                  'y_downer': [x - y for x, y in zip(listOfMeanDataSeries[i], listOfSDSeries[i])]})
+        listOfDataFrames.append(dataFrame)
+    
+    # Next, we create the charts
+    listOfCurves = list()
+    listOfSDArea = list()
+    for i in range(0, len(listOfMeanDataSeries)):
+        colorToUse = listOfColors[i]
+        
+        curve = alt.Chart(listOfDataFrames[i]).mark_line(color=colorToUse).encode(
+            x=alt.X("x", axis=alt.Axis(title="Time step")),
+            y=alt.Y("y", axis=alt.Axis(title=variableName)),
+        ).properties(title=listOfDataSeriesNames[i])
+        
+        confidence_interval = alt.Chart(listOfDataFrames[i]).mark_area(opacity = 0.4, fill=colorToUse).encode(
+            x=alt.X("x", axis=alt.Axis(title="Time step")),
+            y='y_downer',
+            y2='y_upper',
+        ).properties(title=listOfDataSeriesNames[i])
+        
+        listOfCurves.append(curve)
+        listOfSDArea.append(confidence_interval)
+        
+    # Then, we sum everything and return
+    listOfSDArea.extend(listOfCurves)
+    sumOfCharts = listOfSDArea[0]
+    for i in range(1, len(listOfSDArea)):
+        sumOfCharts += listOfSDArea[i]
+    return(sumOfCharts.resolve_scale(color='independent').configure_axis(grid=False))
+
+
 #%% RETRIEVING ENCRYPTED DATA FOR BATCH 0.3
 
 # Encrypted with createEcryptedPickleResults_Batch_0.3
@@ -380,53 +429,6 @@ variableFinal = (variable + " - " + familyArea)
 #               use_container_width=True)
 
 
-def CreateAltairChartWithMeanAndSD(listOfTimesteps,
-                                   listOfDataSeriesNames,
-                                   listOfMeanDataSeries,
-                                   listOfSDSeries,
-                                   listOfColors,
-                                   variableName):
-    """Given a list of mean data series + list of SD,
-    returns an altair chart layer superposing all of the curves +
-    standard deviation areas around them.
-    ListOfColors must same length as listOfMeanDataSeries and listOfSDSeries."""
-    # We put everything as data frames
-    listOfDataFrames = list()
-    for i in range(0, len(listOfMeanDataSeries)):
-        dataFrame = pd.DataFrame({'x': listOfTimesteps,
-                                  'y': listOfMeanDataSeries[i],
-                                  'y_upper': [x + y for x, y in zip(listOfMeanDataSeries[i], listOfSDSeries[i])],
-                                  'y_downer': [x - y for x, y in zip(listOfMeanDataSeries[i], listOfSDSeries[i])]})
-        listOfDataFrames.append(dataFrame)
-    
-    # Next, we create the charts
-    listOfCurves = list()
-    listOfSDArea = list()
-    for i in range(0, len(listOfMeanDataSeries)):
-        colorToUse = listOfColors[i]
-        
-        curve = alt.Chart(listOfDataFrames[i]).mark_line(color=colorToUse).encode(
-            x=alt.X("x", axis=alt.Axis(title="Time step")),
-            y=alt.Y("y", axis=alt.Axis(title=variableName)),
-        ).properties(title=listOfDataSeriesNames[i])
-        
-        confidence_interval = alt.Chart(listOfDataFrames[i]).mark_area(opacity = 0.4, fill=colorToUse).encode(
-            x=alt.X("x", axis=alt.Axis(title="Time step")),
-            y='y_downer',
-            y2='y_upper',
-        ).properties(title=listOfDataSeriesNames[i])
-        
-        listOfCurves.append(curve)
-        listOfSDArea.append(confidence_interval)
-        
-    # Then, we sum everything and return
-    listOfSDArea.extend(listOfCurves)
-    sumOfCharts = listOfSDArea[0]
-    for i in range(1, len(listOfSDArea)):
-        sumOfCharts += listOfSDArea[i]
-    return(sumOfCharts.resolve_scale(color='independent').configure_axis(grid=False))
-
-
 listOfTimesteps = range(0, 110, 10)
 listOfMeanDataSeries = [st.session_state.dictOfValuesForBasicMeasures[variableFinal][dictTransformBioHarvest[biomassHarvest]][dictTransformCutRegim[cutRegime]][list(dictTransformClimateScenario.values())[0]]["Mean"],
                         st.session_state.dictOfValuesForBasicMeasures[variableFinal][dictTransformBioHarvest[biomassHarvest]][dictTransformCutRegim[cutRegime]][list(dictTransformClimateScenario.values())[1]]["Mean"],
@@ -463,10 +465,18 @@ st.altair_chart(chartsCurvesAndConfidence, use_container_width=True)
 # CHARTS WITH INTERACTIVE LEGEND TO ISOLATE LINES BY OPACITY
 # https://github.com/altair-viz/altair/issues/984#issuecomment-591978609
 
+
 # ADDING GDAL AS REQUIREMENT
 # Must install gdal as external package and then as requirement ? See https://docs.streamlit.io/streamlit-community-cloud/deploy-your-app/app-dependencies
 
+# CREATE COMPLEX MAPS OF MOOSE HQI
+# Make a dictionnary with the np.arrays of all the maps..and encrypt it ?
+# Maybe no need to encrypt 
 
+
+
+# MAKE THINGS PRETTY
+# Customise banner, etc.
 
 #%% DRAFT
 
