@@ -361,7 +361,7 @@ def CreateAltairChartWithMeanAndSD(listOfTimesteps,
 
 # We only load the dictionnary if not already loaded
 if 'dictOfValuesForBasicMeasures' not in st.session_state:
-    with open("encrypted_Batch_0.3_dictOfValuesForBasicMeasures.txt", "rb") as f:
+    with open("./data/encrypted_Batch_0.3_dictOfValuesForBasicMeasures.txt", "rb") as f:
         # Decrypt the data from memory
         file_contents = f.read()
         decrypted_data = Fernet(st.secrets["data_batch0_3_password"].encode()).decrypt(file_contents)
@@ -474,14 +474,9 @@ st.altair_chart(chartsCurvesAndConfidence, use_container_width=True)
 # https://github.com/altair-viz/altair/issues/984#issuecomment-591978609
 
 
-# ADDING GDAL AS REQUIREMENT
-# Must install gdal as external package and then as requirement ? See https://docs.streamlit.io/streamlit-community-cloud/deploy-your-app/app-dependencies
-
 # CREATE COMPLEX MAPS OF MOOSE HQI
 # Make a dictionnary with the np.arrays of all the maps..and encrypt it ?
 # Maybe no need to encrypt 
-
-
 
 # MAKE THINGS PRETTY
 # Customise banner, etc.
