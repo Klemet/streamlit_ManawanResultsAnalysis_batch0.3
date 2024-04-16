@@ -15,7 +15,7 @@ This script is under the format of a Streamlit app.
 
 #%% IMPORTING MODULES
 
-import sys, os, glob, re
+import sys, os, glob, re, io
 import pandas as pd
 # from osgeo import gdal
 import numpy as np
@@ -26,7 +26,14 @@ import altair as alt
 import hmac
 from cryptography.fernet import Fernet
 import tifffile
-import gdown
+# import gdown
+import matplotlib.pyplot as plt
+import matplotlib
+from matplotlib.lines import Line2D
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+from webdav3.client import Client
+from rasterio.plot import show
+from rasterio.mask import mask
 
 #%% CHECK PASSWORD
 
@@ -67,11 +74,87 @@ def readRasterTifffile(path):
     """
     return(tifffile.imread(path))
 
+def loadNumpyArrayFromNextcloudTIFFile(webDaveClient, remoteFolder, remoteFileName):
+    """
+    Done after a lot of tweaking around with perplexity.
+    The function does not need to save a local file, and downloads things relatively
+    quickly.
+    Can be used with the nextcloud of ComputeCanada.
+    """
+    res1 = webDaveClient.resource(remoteFolder + remoteFileName)
+    buffer = io.BytesIO()
+    res1.write_to(buffer)
+    tiff_buffer = io.BytesIO(buffer.getbuffer())
+    image = tifffile.imread(tiff_buffer)
+    return(image)
+
 # Main Streamlit app starts here
 
 #%% STREAMLIT PARAMETERS
 
 # matplotlib.use('SVG')
+
+
+
+#%% PREPARING CLIENT TO ACCESS REMOTE FILES ON NEXTCLOUD
+
+# Problem : Moose HQI maps data is too big for github and for streamlit, even pickled.
+# Solution : put everything on a nextcloud install. Files can be read through webdav
+# into a buffer, and loaded into a numpy array without creating local files (see loadNumpyArrayFromNextcloudTIFFile)
+# It's a bit slower than I'd want, but it works.
+
+options = {
+ 'webdav_hostname': st.secrets["nextcloudAdress"],
+ 'webdav_login':    st.secrets["nextcloudUser"],
+ 'webdav_password': st.secrets["nextcloudPasswordApp"]
+}
+
+# options = {
+#   'webdav_hostname': "https://nextcloud.computecanada.ca/remote.php/dav/files/chardy2/",
+#   'webdav_login':    "chardy2",
+#   'webdav_password': "HCXko-MoKW8-xSQ7A-XGtxk-5DHJJ"
+# }
+
+webDavClient = Client(options)
+# client.list()
+
+# client.list("Data - StreamlitApps/appmanawanresultsanalysisbatch03.streamlit.app/Moose_HQI/Average and SD Rasters/Average/")
+
+# res1 = client.resource("Data - StreamlitApps/appmanawanresultsanalysisbatch03.streamlit.app/Moose_HQI/Average and SD Rasters/Average/BAU50%-ClearCutsPlus-Baseline_Average_HQI_Moose_KOITZSCH_Timestep_50.tif")
+# buffer = io.BytesIO()
+# res1.write_to(buffer)
+# tiff_buffer = io.BytesIO(buffer.getbuffer())
+# image = tifffile.imread(tiff_buffer)
+
+# DEBUG : Tests the connection by displayng a raster.
+# img_array = loadNumpyArrayFromNextcloudTIFFile(webDavClient,
+#                                                 "Data - StreamlitApps/appmanawanresultsanalysisbatch03.streamlit.app/Moose_HQI/Average and SD Rasters/Average/",
+#                                                 "BAU50%-ClearCutsPlus-Baseline_Average_HQI_Moose_KOITZSCH_Timestep_50.tif")
+
+
+# remoteFolder = "Data - StreamlitApps/appmanawanresultsanalysisbatch03.streamlit.app/Moose_HQI/Average and SD Rasters/Average/"
+# remoteFileName = "BAU50%-ClearCutsPlus-Baseline_Average_HQI_Moose_KOITZSCH_Timestep_50.tif"
+
+# res1 = webDavClient.resource(remoteFolder + remoteFileName)
+# buffer = io.BytesIO()
+# res1.write_to(buffer)
+
+# # NOT faster at all
+# webDavClient.download_sync(remote_path=remoteFolder + remoteFileName,
+#                            local_path="file1.tif")
+
+# tiff_buffer = io.BytesIO(buffer.getbuffer())
+# image = tifffile.imread(tiff_buffer)
+
+
+# fig = plt.figure(figsize=(6, 6))
+# plt.imshow(img_array)
+# st.pyplot(fig)
+
+# testArray = tifffile.imread("file1.tif")
+# np.save('my_array.npy', testArray)
+# with open('my_array.pkl', 'wb') as f:
+#     pickle.dump(testArray, f)
 
 #%% DEFINING FUNCTIONS
 
@@ -373,7 +456,7 @@ if 'dictOfValuesForBasicMeasures' not in st.session_state:
     # We put the variable in st.session; this way, no need to re-do this part if already loaded.
     st.session_state.dictOfValuesForBasicMeasures = retrieved_dict
 
-#%% MAKING THE FIGURES AGE, HARVESTED BIOMASS, BIOMASS AND SURFACE BURNED
+#%% ASKING FOR VARIABLES TO DISPLAY
 
 if 'variableList' not in st.session_state or "variableUnit" not in st.session_state:
     # We make the list of unique variables
@@ -401,21 +484,8 @@ if 'variableList' not in st.session_state or "variableUnit" not in st.session_st
             variableUnit[variable] = "(Hectares)"
         else:
             variableUnit[variable] = ""
-
-variable = st.selectbox("Choose the variable to display : ", variableList, list(variableList).index('Total Biomass'))
-if variable != "Moose Habitat Quality Index Maps":
-    familyArea = st.selectbox("Choose the family area to display : ", famillyAreasNames, list(famillyAreasNames).index('Territoire Manawan Entier'))
-# otherVariable = st.selectbox("Choose the variable to display : ", st.session_state.dictOfValuesForBasicMeasures.keys())
-biomassHarvest = st.selectbox("Choose the intensity of harvesting : ", ["50% of BAU", "100% of BAU", "200% of BAU"], 1)
-cutRegime = st.selectbox("Choose the cutting regime : ", ["Normal (cuts as in BAU)",
-                                                          "More clearcuts",
-                                                          "More partial cuts"], 0)
-# climateScenario = st.selectbox("Choose the climate scenario : ", ["Baseline", "RCP 4.5", "RCP 8.5"])
-
-
-#%% DISPLAYING GRAPHS OF BASIC MEASURES
-
-if variable != "Moose Habitat Quality Index Maps":
+            
+    # Dictionnaries to transform things back to select things
     dictTransformBioHarvest = {"50% of BAU":"BAU50%",
                                "100% of BAU":"BAU100%",
                                "200% of BAU":"BAU200%"}
@@ -427,6 +497,25 @@ if variable != "Moose Habitat Quality Index Maps":
     dictTransformClimateScenario = {"Baseline":"Baseline",
                                     "RCP 4.5":"RCP45",
                                     "RCP 8.5":"RCP85"}
+
+variable = st.selectbox("Choose the variable to display : ", variableList, list(variableList).index('Total Biomass'))
+if variable != "Moose Habitat Quality Index Maps":
+    familyArea = st.selectbox("Choose the family area to display : ", famillyAreasNames, list(famillyAreasNames).index('Territoire Manawan Entier'))
+# otherVariable = st.selectbox("Choose the variable to display : ", st.session_state.dictOfValuesForBasicMeasures.keys())
+biomassHarvest = st.selectbox("Choose the intensity of harvesting : ", ["50% of BAU", "100% of BAU", "200% of BAU"], 1)
+cutRegime = st.selectbox("Choose the cutting regime : ", ["Normal (cuts as in BAU)",
+                                                          "More clearcuts",
+                                                          "More partial cuts"], 0)
+if variable == "Moose Habitat Quality Index Maps":
+    indexType = st.selectbox("Select a Moose HQI index type : ",
+                                   ["DUSSAULT", "KOITZSCH"],
+                                   0)
+# climateScenario = st.selectbox("Choose the climate scenario : ", ["Baseline", "RCP 4.5", "RCP 8.5"])
+
+
+#%% DISPLAYING GRAPHS OF BASIC MEASURES
+
+if variable != "Moose Habitat Quality Index Maps":
     
     colorDictionnary = [""]
     
@@ -465,8 +554,285 @@ if variable != "Moose Habitat Quality Index Maps":
     
     st.altair_chart(chartsCurvesAndConfidence, use_container_width=True)
 
-#%% DISPLAYING MAPS OF MOOSE HQI
+#%% DISPLAYING MAPS OF MOOSE HQI 
 
+
+if variable == "Moose Habitat Quality Index Maps":
+    
+    # img_array = loadNumpyArrayFromNextcloudTIFFile(client,
+    #                                                "Data - StreamlitApps/appmanawanresultsanalysisbatch03.streamlit.app/Moose_HQI/Average and SD Rasters/Average/",
+    #                                                "BAU50%-ClearCutsPlus-Baseline_Average_HQI_Moose_KOITZSCH_Timestep_50.tif")
+    # fig = plt.figure(figsize=(6, 6))
+    
+    loading_indicator = st.empty()
+    progressIndicator = 0
+    loading_indicator.write("⚙ Generating figure : " + str(progressIndicator) + "%")
+    
+    pathOfMooseHQIRasters = "Data - StreamlitApps/appmanawanresultsanalysisbatch03.streamlit.app/Moose_HQI/Average and SD Rasters/"
+    
+    dictT0Raster = {"KOITZSCH":"Average/Initial_HQI_Moose_KOITZSCH.tif",
+                    "DUSSAULT":"Average/Initial_HQI_Moose_DUSSAULT.tif"}
+    
+    dictTitle = {"KOITZSCH":"Koitzch (2002)",
+                  "DUSSAULT":"Dussault et al. (2006)"}
+    
+    dictYlim = {"KOITZSCH":1,
+                  "DUSSAULT":1.2}
+    
+    dictTicksAverage = {"KOITZSCH":[0, 0.5, 1],
+                        "DUSSAULT":[0, 0.6, 1.2]}
+    
+    dictTicksSD = {"KOITZSCH":[0, 0.5],
+                    "DUSSAULT":[0, 0.6]}
+    
+    # Gotta use a dict that is a little bit different here because of differences
+    # in the data labels.
+    dictTransformCutRegim2 = {"Normal (cuts as in BAU)":"NormalCuts",
+                             "More clearcuts":"ClearCutsPlus",
+                             "More partial cuts":"PartialCutsPlus"}
+    bioHarvestedHQI = dictTransformBioHarvest[biomassHarvest]
+    cutRegimeHQI = dictTransformCutRegim2[cutRegime]
+    listClimateScenarios = ["Baseline", "RCP45", "RCP85"]
+    
+    # We create the big figure
+    widthFigureInches = 14
+    heightFigureInches = 4*3
+    bigFigure = plt.figure(figsize = [widthFigureInches, heightFigureInches])
+    bigFigure.set_facecolor("#eceff4")
+    bigFigure.show()
+    
+    # We create the axis that we will fill in the big figure, and put them
+    # in a dictionnary to call them clearly with a name
+    dictAxis = dict()
+    
+    # We define the "Mask" for the raster, to avoid displaying 0 values/pixels
+    # This mask is simply the timestep 0 raster.
+    if 'maskRasterMooseHQI' not in st.session_state:
+        maskRasterMooseHQI = loadNumpyArrayFromNextcloudTIFFile(webDavClient,
+                                                                pathOfMooseHQIRasters,
+                                                                dictT0Raster[indexType])
+    maskRasterMooseHQI = np.where(maskRasterMooseHQI > 0, 1, 0)
+    
+    progressIndicator = 5
+    loading_indicator.write("Generating figure : " + str(progressIndicator) + "%")
+    # We make the cmap for the mask
+    # Color map for fire raster
+    levels = [0, 1, 999]
+    clrs = ['#FFFFFF', '#FFFFFF00'] 
+    cmapMooseMask, norm = matplotlib.colors.from_levels_and_colors(levels, clrs)
+    
+    # MOOVING THE RASTERS AXIS
+    # Used for the creation of axis bellow
+    bottomAxisModifier = 0.05
+    rightAxisModifier = 0.03
+    
+    # We create the "Example" on the side
+    # We display the average raster for t = 30 for a scenario
+    dictAxis["exampleRaster"] = createAxisForRaster([0.4-rightAxisModifier, 0.8-bottomAxisModifier, 0.198, 0.2], bigFigure, disableAxis = True)
+    dictAxis["exampleRaster"].zorder = 3 # We prepare to pu the legend below
+    if 'exampleMeanRaster' not in st.session_state:
+        exampleMeanRaster = loadNumpyArrayFromNextcloudTIFFile(webDavClient,
+                                                                pathOfMooseHQIRasters,
+                                                                "Average/BAU50%-ClearCutsPlus-Baseline_Average_HQI_Moose_KOITZSCH_Timestep_30.tif")
+    exeampleMeanRasterShow = show(exampleMeanRaster, ax=dictAxis["exampleRaster"],
+                                  alpha=1, cmap = 'viridis')
+    exeampleMeanRasterShow = exeampleMeanRasterShow.get_images()[0]
+    show(maskRasterMooseHQI, ax=dictAxis["exampleRaster"], alpha=1, cmap = cmapMooseMask)
+    progressIndicator = 10
+    loading_indicator.write("⚙ Generating figure : " + str(progressIndicator) + "%")
+    
+    
+    # We display a legend on the side for the average raster
+    # To do that without altering the raster, we create a new hidden axis "below"
+    # the one of the raster, and plot the colorbar based on the raster.
+    # It's ugly, but it works.
+    exeampleMeanRasterShow.set_clim([0, dictYlim[indexType]])
+    dictAxis["exampleRasterLegend"] = createAxisForRaster([0.35-rightAxisModifier, 0.82-bottomAxisModifier, 0.220, 0.16], bigFigure, disableAxis = True)
+    bigFigure.colorbar(exeampleMeanRasterShow, ax = dictAxis["exampleRasterLegend"],
+                        location = "left", ticks = dictTicksAverage[indexType])
+    
+    # We display the SD raster in small next to it
+    dictAxis["exampleRasterSD"] = createAxisForRaster([0.60-rightAxisModifier, 0.90-bottomAxisModifier, 0.100, 0.087], bigFigure, disableAxis = True)
+    dictAxis["exampleRasterSD"].zorder = 3 # We prepare to pu the legend below
+    if 'exampleSDRaster' not in st.session_state:
+        exampleSDRaster = loadNumpyArrayFromNextcloudTIFFile(webDavClient,
+                                                                pathOfMooseHQIRasters,
+                                                                "SD/BAU50%-ClearCutsPlus-Baseline_SD_HQI_Moose_KOITZSCH_Timestep_30.tif")
+    exampleSDRasterShow = show(exampleSDRaster, ax=dictAxis["exampleRasterSD"],
+                                alpha=1, cmap = 'magma')
+    exampleSDRasterShow = exampleSDRasterShow.get_images()[0]
+    show(maskRasterMooseHQI, ax=dictAxis["exampleRasterSD"], alpha=1, cmap = cmapMooseMask)
+    progressIndicator = 15
+    loading_indicator.write("⚙ Generating figure : " + str(progressIndicator) + "%")
+    
+    # We display a legend for the variability raster
+    exampleSDRasterShow.set_clim([0, dictYlim[indexType]/2])
+    dictAxis["exampleRasterSDLegend"] = createAxisForRaster([0.60-rightAxisModifier, 0.90-bottomAxisModifier, 0.125, 0.087], bigFigure, disableAxis = True)
+    bigFigure.colorbar(exampleSDRasterShow, ax = dictAxis["exampleRasterSDLegend"],
+                        location = "right", ticks = dictTicksSD[indexType])
+    
+    # We display some text to explain
+    titleOfFigure = 'Habitat Quality Map for the Moose - Index of ' + dictTitle[indexType]
+    bigFigure.text(0.32-rightAxisModifier - len(titleOfFigure) * 0.0019, 1.01-bottomAxisModifier, 
+                    titleOfFigure, 
+                    fontsize = 22,
+                    fontweight = "bold",
+                    color = "#2e3440")
+    bigFigure.text(0.222-rightAxisModifier, 0.885-bottomAxisModifier, 
+                    "Average between\nreplicates", 
+                    fontsize = "medium",
+                    color = "#2e3440",
+                    weight = "medium",
+                    horizontalalignment = "center")
+    bigFigure.text(0.85-rightAxisModifier, 0.93-bottomAxisModifier, 
+                    "Variability between\nreplicates", 
+                    fontsize = "medium",
+                    color = "#2e3440",
+                    weight = "medium",
+                    horizontalalignment = "center")
+    bigFigure.add_artist(Line2D((0.27-rightAxisModifier,
+                                  0.34-rightAxisModifier),
+                                (0.90-bottomAxisModifier,
+                                  0.90-bottomAxisModifier),
+                                color='#2e3440', transform=bigFigure.transFigure,
+                                zorder = 0,
+                                ls  = "--"))
+    bigFigure.add_artist(Line2D((0.80-rightAxisModifier,
+                                  0.73-rightAxisModifier),
+                                (0.945-bottomAxisModifier,
+                                  0.945-bottomAxisModifier),
+                                color='#2e3440', transform=bigFigure.transFigure,
+                                zorder = 0,
+                                ls  = "--"))
+    
+    # We add the axis for the rasters
+    # We define their size
+    meanRasterWidth = 0.150
+    meanRasterHeight = meanRasterWidth * 1.0101010101
+    SDrasterWidth = meanRasterWidth * 0.5050505051
+    SDrasterHeight = meanRasterWidth * 0.5050505051 * 1.16
+    # We define the space between them
+    horizontalSpaceBetweenMeanAndSDRaster = 0.60 - 0.598
+    horizontalSpaceBetweenBlobsOfRaster = 0.05 
+    verticalSpaceBetweenBlobsOfRaster = 0.02
+    for x in range(0, 3):
+        for y in range (0, 4):
+            rasterBlobOrigin = (0.15 + x * (horizontalSpaceBetweenBlobsOfRaster +
+                                            meanRasterWidth +
+                                            horizontalSpaceBetweenMeanAndSDRaster +  SDrasterWidth),
+                                0.01 + y * (verticalSpaceBetweenBlobsOfRaster +
+                                            meanRasterHeight))
+            dictAxis["Mean-" + str((x, y))] = createAxisForRaster([rasterBlobOrigin[0], rasterBlobOrigin[1],
+                                                              meanRasterWidth, meanRasterHeight],
+                                                            bigFigure, disableAxis = True)
+            
+            dictAxis["SD-" + str((x, y))] = createAxisForRaster([rasterBlobOrigin[0] + meanRasterWidth + horizontalSpaceBetweenMeanAndSDRaster,
+                                                                rasterBlobOrigin[1] + meanRasterHeight - SDrasterHeight,
+                                                                SDrasterWidth, SDrasterHeight], bigFigure, disableAxis = True)
+    
+    
+    # We indicate words to refer to what the axis mean
+    bioHarvestedHQI = dictTransformBioHarvest[biomassHarvest]
+    cutRegimeHQI = dictTransformCutRegim2[cutRegime]
+    listOfScenarios = [str(bioHarvestedHQI) + " - " + str(cutRegimeHQI) + "\nBaseline",
+                       str(bioHarvestedHQI) + " - " + str(cutRegimeHQI) + "\nRCP 4.5",
+                       str(bioHarvestedHQI) + " - " + str(cutRegimeHQI) + "\nRCP 8.5"]
+    for x in range(0, 3):
+        bigFigure.text(0.27 + x * (horizontalSpaceBetweenBlobsOfRaster +
+                                        meanRasterWidth +
+                                        horizontalSpaceBetweenMeanAndSDRaster +  SDrasterWidth),
+                        0.68, 
+                        listOfScenarios[x], 
+                        fontsize = 17,
+                        fontname = "Arial",
+                        fontweight = "bold",
+                        color = "#2e3440",
+                        horizontalalignment='center')
+    listOfTimeStep = ["t = 0 (2023)", "t = 30 (2053)", "t = 50 (2073)", "t = 100 (2123)"]
+    for y in range(0, 4):
+        bigFigure.text(0.02,
+                        0.59 - y * (verticalSpaceBetweenBlobsOfRaster +
+                                  meanRasterHeight), 
+                        listOfTimeStep[y], 
+                        fontsize = 17,
+                        fontweight = "bold",
+                        color = "#2e3440")
+    
+    # We fill the axis
+    # WARNING : Be careful about the order here !
+    # from bottom to top, then left to right
+    
+    
+    listOfMeanRasters = ["Average/" + str(bioHarvestedHQI) + "-" + str(cutRegimeHQI) + "-" + str(listClimateScenarios[0]) + "_Average_HQI_Moose_" + indexType +  "_Timestep_100.tif",
+                          "Average/" + str(bioHarvestedHQI) + "-" + str(cutRegimeHQI) + "-" + str(listClimateScenarios[0]) + "_Average_HQI_Moose_" + indexType +  "_Timestep_50.tif",
+                          "Average/" + str(bioHarvestedHQI) + "-" + str(cutRegimeHQI) + "-" + str(listClimateScenarios[0]) + "_Average_HQI_Moose_" + indexType +  "_Timestep_30.tif",
+                          dictT0Raster[indexType],
+                          "Average/" + str(bioHarvestedHQI) + "-" + str(cutRegimeHQI) + "-" + str(listClimateScenarios[1]) + "_Average_HQI_Moose_" + indexType +  "_Timestep_100.tif",
+                          "Average/" + str(bioHarvestedHQI) + "-" + str(cutRegimeHQI) + "-" + str(listClimateScenarios[1]) + "_Average_HQI_Moose_" + indexType +  "_Timestep_50.tif",
+                          "Average/" + str(bioHarvestedHQI) + "-" + str(cutRegimeHQI) + "-" + str(listClimateScenarios[1]) + "_Average_HQI_Moose_" + indexType +  "_Timestep_30.tif",
+                          dictT0Raster[indexType],
+                          "Average/" + str(bioHarvestedHQI) + "-" + str(cutRegimeHQI) + "-" + str(listClimateScenarios[2]) + "_Average_HQI_Moose_" + indexType +  "_Timestep_100.tif",
+                          "Average/" + str(bioHarvestedHQI) + "-" + str(cutRegimeHQI) + "-" + str(listClimateScenarios[2]) + "_Average_HQI_Moose_" + indexType +  "_Timestep_50.tif",
+                          "Average/" + str(bioHarvestedHQI) + "-" + str(cutRegimeHQI) + "-" + str(listClimateScenarios[2]) + "_Average_HQI_Moose_" + indexType +  "_Timestep_30.tif",
+                          dictT0Raster[indexType]]
+    
+    listOfSDRasters = ["SD/" + str(bioHarvestedHQI) + "-" + str(cutRegimeHQI) + "-" + str(listClimateScenarios[0]) + "_SD_HQI_Moose_" + indexType +  "_Timestep_100.tif",
+                          "SD/" + str(bioHarvestedHQI) + "-" + str(cutRegimeHQI) + "-" + str(listClimateScenarios[0]) + "_SD_HQI_Moose_" + indexType +  "_Timestep_50.tif",
+                          "SD/" + str(bioHarvestedHQI) + "-" + str(cutRegimeHQI) + "-" + str(listClimateScenarios[0]) + "_SD_HQI_Moose_" + indexType +  "_Timestep_30.tif",
+                          "",
+                          "SD/" + str(bioHarvestedHQI) + "-" + str(cutRegimeHQI) + "-" + str(listClimateScenarios[1]) + "_SD_HQI_Moose_" + indexType +  "_Timestep_100.tif",
+                          "SD/" + str(bioHarvestedHQI) + "-" + str(cutRegimeHQI) + "-" + str(listClimateScenarios[1]) + "_SD_HQI_Moose_" + indexType +  "_Timestep_50.tif",
+                          "SD/" + str(bioHarvestedHQI) + "-" + str(cutRegimeHQI) + "-" + str(listClimateScenarios[1]) + "_SD_HQI_Moose_" + indexType +  "_Timestep_30.tif",
+                          "",
+                          "SD/" + str(bioHarvestedHQI) + "-" + str(cutRegimeHQI) + "-" + str(listClimateScenarios[2]) + "_SD_HQI_Moose_" + indexType +  "_Timestep_100.tif",
+                          "SD/" + str(bioHarvestedHQI) + "-" + str(cutRegimeHQI) + "-" + str(listClimateScenarios[2]) + "_SD_HQI_Moose_" + indexType +  "_Timestep_50.tif",
+                          "SD/" + str(bioHarvestedHQI) + "-" + str(cutRegimeHQI) + "-" + str(listClimateScenarios[2]) + "_SD_HQI_Moose_" + indexType +  "_Timestep_30.tif"]
+    
+    progressIndicator = 20
+    loading_indicator.write("⚙ Generating figure : " + str(progressIndicator) + "%")
+    
+    testingScript = False
+    
+    for x in range(0, 3):
+        for y in range (0, 4):
+            
+            loading_indicator.write("⚙ Generating figure : " + str(round(progressIndicator, 2)) + "%")
+            if testingScript:
+                meanRaster = exampleMeanRaster
+            else:
+                meanRaster = loadNumpyArrayFromNextcloudTIFFile(webDavClient,
+                                                                pathOfMooseHQIRasters,
+                                                                listOfMeanRasters[y + 4 * x])
+            meanRasterShow = show(meanRaster, ax=dictAxis["Mean-" + str((x, y))],
+                                          alpha=1, cmap = 'viridis')
+            meanRasterShow = meanRasterShow.get_images()[0]
+            meanRasterShow.set_clim([0, dictYlim[indexType]])
+            show(maskRasterMooseHQI, ax=dictAxis["Mean-" + str((x, y))], alpha=1, cmap = cmapMooseMask)
+    
+            if y < 3: # No variability if t = 0 raster
+                if testingScript:
+                    SDRaster = exampleSDRaster
+                else:
+                    SDRaster = loadNumpyArrayFromNextcloudTIFFile(webDavClient,
+                                                                  pathOfMooseHQIRasters,
+                                                                  listOfSDRasters[y + 4 * x])
+                SDRasterShow = show(SDRaster, ax=dictAxis["SD-" + str((x, y))],
+                                            alpha=1, cmap = 'magma')
+                SDRasterShow = SDRasterShow.get_images()[0]
+                SDRasterShow.set_clim([0, dictYlim[indexType]/2])
+                show(maskRasterMooseHQI, ax=dictAxis["SD-" + str((x, y))], alpha=1, cmap = cmapMooseMask)
+            if y == 3:
+                SDRaster = np.zeros(SDRaster.shape)
+                SDRasterShow = show(SDRaster, ax=dictAxis["SD-" + str((x, y))],
+                                            alpha=1, cmap = 'magma')
+                SDRasterShow = SDRasterShow.get_images()[0]
+                SDRasterShow.set_clim([0, dictYlim[indexType]/2])
+                show(maskRasterMooseHQI, ax=dictAxis["SD-" + str((x, y))], alpha=1, cmap = cmapMooseMask)
+                
+            progressIndicator += 6.6
+    
+    loading_indicator.write("")
+    st.pyplot(bigFigure)
 
 
 #%% UP NEXT
@@ -626,7 +992,7 @@ if variable != "Moose Habitat Quality Index Maps":
 # bigFigure.text(1.4, 3.6, 
 #                'Zone', 
 #                fontsize = fontSizeForTextTitles,
-#                fontname = "Segoe UI",
+#                fontname = "Arial",
 #                fontweight = "bold",
 #                color = "#2e3440",
 #                transform=bigFigure.dpi_scale_trans)
@@ -634,7 +1000,7 @@ if variable != "Moose Habitat Quality Index Maps":
 # bigFigure.text(0.45, 2.9, 
 #                familyZoneNameWrapped, 
 #                fontsize = "large",
-#                fontname = "Segoe UI",
+#                fontname = "Arial",
 #                color = "#2e3440",
 #                weight = "semibold",
 #                transform=bigFigure.dpi_scale_trans)
@@ -642,7 +1008,7 @@ if variable != "Moose Habitat Quality Index Maps":
 # bigFigure.text(8.3, 3.6, 
 #                'Variables', 
 #                fontsize = fontSizeForTextTitles,
-#                fontname = "Segoe UI",
+#                fontname = "Arial",
 #                fontweight = "bold",
 #                color = "#2e3440",
 #                transform=bigFigure.dpi_scale_trans)
@@ -700,7 +1066,7 @@ if variable != "Moose Habitat Quality Index Maps":
 # bigFigure.text(0.45, 2.60, 
 #                '{:,}'.format(totalArea) + " hectares | " + str(round(percentageOfForest, 0)) + "% de forêts", 
 #                fontsize = "large",
-#                fontname = "Segoe UI",
+#                fontname = "Arial",
 #                color = "#2e3440",
 #                transform=bigFigure.dpi_scale_trans)
 # # We remove the bars around the raster
@@ -871,7 +1237,7 @@ if variable != "Moose Habitat Quality Index Maps":
 #     bigFigure.text(1.4, 3.6, 
 #                    'Zone', 
 #                    fontsize = fontSizeForTextTitles,
-#                    fontname = "Segoe UI",
+#                    fontname = "Arial",
 #                    fontweight = "bold",
 #                    color = "#2e3440",
 #                    transform=bigFigure.dpi_scale_trans)
@@ -879,7 +1245,7 @@ if variable != "Moose Habitat Quality Index Maps":
 #     bigFigure.text(0.45, 2.9, 
 #                    familyZoneNameWrapped, 
 #                    fontsize = "large",
-#                    fontname = "Segoe UI",
+#                    fontname = "Arial",
 #                    color = "#2e3440",
 #                    weight = "semibold",
 #                    transform=bigFigure.dpi_scale_trans)
@@ -887,7 +1253,7 @@ if variable != "Moose Habitat Quality Index Maps":
 #     bigFigure.text(8.3, 3.6, 
 #                    'Variables', 
 #                    fontsize = fontSizeForTextTitles,
-#                    fontname = "Segoe UI",
+#                    fontname = "Arial",
 #                    fontweight = "bold",
 #                    color = "#2e3440",
 #                    transform=bigFigure.dpi_scale_trans)
@@ -944,7 +1310,7 @@ if variable != "Moose Habitat Quality Index Maps":
 #     bigFigure.text(0.45, 2.60, 
 #                    '{:,}'.format(totalArea) + " hectares | " + str(round(percentageOfForest, 0)) + "% de forêts", 
 #                    fontsize = "large",
-#                    fontname = "Segoe UI",
+#                    fontname = "Arial",
 #                    color = "#2e3440",
 #                    transform=bigFigure.dpi_scale_trans)
 #     # We remove the bars around the raster
@@ -1002,7 +1368,7 @@ if variable != "Moose Habitat Quality Index Maps":
 #         dictAxis[str(factorList[i])].ticklabel_format(axis="y", style="sci", scilimits=(0,3))  
 #         # We add title above plot
 #         # dictAxis[str(factorList[i])].set_title(str(factorList[i]), y = 1.05)
-#         dictAxis[str(factorList[i])].set_title(str(factorList[i]), y = 1.05, fontname = "Segoe UI")
+#         dictAxis[str(factorList[i])].set_title(str(factorList[i]), y = 1.05, fontname = "Arial")
 #         # We limit the amount of ticks
 #         dictAxis[str(factorList[i])].locator_params(nbins=4)
 #         # We remove the spines that are too numerous
@@ -1034,7 +1400,7 @@ if variable != "Moose Habitat Quality Index Maps":
   
 #     labels = list(colorsLegend.keys())
 #     handles = [plt.Rectangle((0,0),1,1, color=colorsLegend[label]) for label in labels]
-#     dictAxis[str(factorList[0])].legend(handles, colorsLegend, prop={'size': 8, 'family':"Segoe UI"},
+#     dictAxis[str(factorList[0])].legend(handles, colorsLegend, prop={'size': 8, 'family':"Arial"},
 #                                         loc = "upper center", bbox_to_anchor=(-1.10, 1.10), ncol=1, labelspacing = 1, frameon=False)
             
 #     #### VARIABILITY GRAPH ####
@@ -1065,7 +1431,7 @@ if variable != "Moose Habitat Quality Index Maps":
 #     bigFigure.text(5.85, 2.19, 
 #                     "Moyenne des\nsurfaces entre\nréplicats (Ha)", 
 #                     fontsize = "medium",
-#                     fontname = "Segoe UI",
+#                     fontname = "Arial",
 #                     color = "#2e3440",
 #                     transform=bigFigure.dpi_scale_trans,
 #                     weight = "medium",
@@ -1073,7 +1439,7 @@ if variable != "Moose Habitat Quality Index Maps":
 #     bigFigure.text(5.85, 0.74, 
 #                     "Variabilité des\nsurfaces entre\nréplicats (Ha)", 
 #                     fontsize = "medium",
-#                     fontname = "Segoe UI",
+#                     fontname = "Arial",
 #                     color = "#2e3440",
 #                     transform=bigFigure.dpi_scale_trans,
 #                     weight = "medium",
@@ -1241,20 +1607,20 @@ if variable != "Moose Habitat Quality Index Maps":
 #     bigFigure.text(0.32-rightAxisModifier - len(titleOfFigure) * 0.0019, 1.01-bottomAxisModifier, 
 #                    titleOfFigure, 
 #                    fontsize = 22,
-#                    fontname = "Segoe UI",
+#                    fontname = "Arial",
 #                    fontweight = "bold",
 #                    color = "#2e3440")
 #     bigFigure.text(0.23-rightAxisModifier, 0.885-bottomAxisModifier, 
 #                     "Moyenne entre\nréplicats", 
 #                     fontsize = "medium",
-#                     fontname = "Segoe UI",
+#                     fontname = "Arial",
 #                     color = "#2e3440",
 #                     weight = "medium",
 #                     horizontalalignment = "center")
 #     bigFigure.text(0.85-rightAxisModifier, 0.93-bottomAxisModifier, 
 #                     "Variabilité entre\nréplicats", 
 #                     fontsize = "medium",
-#                     fontname = "Segoe UI",
+#                     fontname = "Arial",
 #                     color = "#2e3440",
 #                     weight = "medium",
 #                     horizontalalignment = "center")
@@ -1308,7 +1674,7 @@ if variable != "Moose Habitat Quality Index Maps":
 #                        0.7, 
 #                        listOfScenarios[x], 
 #                        fontsize = 17,
-#                        fontname = "Segoe UI",
+#                        fontname = "Arial",
 #                        fontweight = "bold",
 #                        color = "#2e3440")
 #     listOfTimeStep = ["t = 0 (2023)", "t = 30 (2053)", "t = 50 (2073)", "t = 100 (2123)"]
@@ -1318,7 +1684,7 @@ if variable != "Moose Habitat Quality Index Maps":
 #                                   meanRasterHeight), 
 #                        listOfTimeStep[y], 
 #                        fontsize = 17,
-#                        fontname = "Segoe UI",
+#                        fontname = "Arial",
 #                        fontweight = "bold",
 #                        color = "#2e3440")
     
