@@ -374,32 +374,36 @@ if 'dictOfValuesForBasicMeasures' not in st.session_state:
 
 #%% MAKING THE FIGURES AGE, HARVESTED BIOMASS, BIOMASS AND SURFACE BURNED
 
-# We make the list of unique variables
-variableList = st.session_state.dictOfValuesForBasicMeasures.keys()
-char_to_remove = ' - '
-variableList = [s.split(char_to_remove)[0] for s in variableList]
-variableList = sorted(list(set(variableList)))
+if 'variableList' not in st.session_state or "variableUnit" not in st.session_state:
+    # We make the list of unique variables
+    variableList = st.session_state.dictOfValuesForBasicMeasures.keys()
+    char_to_remove = ' - '
+    variableList = [s.split(char_to_remove)[0] for s in variableList]
+    # We add the "HQI moose map" variable
+    variableList.append("Moose Habitat Quality Index Maps")
+    variableList = sorted(list(set(variableList)))
+    
+    # We make the list of familly territories
+    famillyAreasNames = st.session_state.dictOfValuesForBasicMeasures.keys()
+    char_to_remove = ' - '
+    famillyAreasNames = [s.split(char_to_remove)[1] for s in famillyAreasNames]
+    famillyAreasNames = sorted(list(set(famillyAreasNames)))
 
-# We make the list of familly territories
-famillyAreasNames = st.session_state.dictOfValuesForBasicMeasures.keys()
-char_to_remove = ' - '
-famillyAreasNames = [s.split(char_to_remove)[1] for s in famillyAreasNames]
-famillyAreasNames = sorted(list(set(famillyAreasNames)))
-
-# Dictionnary of variables units
-variableUnit = dict()
-for variable in variableList:
-    if "Biomass" in variable:
-        variableUnit[variable] = "(Mg)"
-    elif "Max Age" in variable:
-        variableUnit[variable] = "(Years)"
-    elif "Forest" in variable or "Surface" in variable:
-        variableUnit[variable] = "(Hectares)"
-    else:
-        variableUnit[variable] = ""
+    # Dictionnary of variables units
+    variableUnit = dict()
+    for variable in variableList:
+        if "Biomass" in variable:
+            variableUnit[variable] = "(Mg)"
+        elif "Max Age" in variable:
+            variableUnit[variable] = "(Years)"
+        elif "Forest" in variable or "Surface" in variable:
+            variableUnit[variable] = "(Hectares)"
+        else:
+            variableUnit[variable] = ""
 
 variable = st.selectbox("Choose the variable to display : ", variableList, list(variableList).index('Total Biomass'))
-familyArea = st.selectbox("Choose the family area to display : ", famillyAreasNames, list(famillyAreasNames).index('Territoire Manawan Entier'))
+if variable != "Moose Habitat Quality Index Maps":
+    familyArea = st.selectbox("Choose the family area to display : ", famillyAreasNames, list(famillyAreasNames).index('Territoire Manawan Entier'))
 # otherVariable = st.selectbox("Choose the variable to display : ", st.session_state.dictOfValuesForBasicMeasures.keys())
 biomassHarvest = st.selectbox("Choose the intensity of harvesting : ", ["50% of BAU", "100% of BAU", "200% of BAU"], 1)
 cutRegime = st.selectbox("Choose the cutting regime : ", ["Normal (cuts as in BAU)",
@@ -407,54 +411,60 @@ cutRegime = st.selectbox("Choose the cutting regime : ", ["Normal (cuts as in BA
                                                           "More partial cuts"], 0)
 # climateScenario = st.selectbox("Choose the climate scenario : ", ["Baseline", "RCP 4.5", "RCP 8.5"])
 
-dictTransformBioHarvest = {"50% of BAU":"BAU50%",
-                           "100% of BAU":"BAU100%",
-                           "200% of BAU":"BAU200%"}
 
-dictTransformCutRegim = {"Normal (cuts as in BAU)":"Normal",
-                         "More clearcuts":"ClearCutsPlus",
-                         "More partial cuts":"PartialCutsPlus"}
+#%% DISPLAYING GRAPHS OF BASIC MEASURES
 
-dictTransformClimateScenario = {"Baseline":"Baseline",
-                                "RCP 4.5":"RCP45",
-                                "RCP 8.5":"RCP85"}
+if variable != "Moose Habitat Quality Index Maps":
+    dictTransformBioHarvest = {"50% of BAU":"BAU50%",
+                               "100% of BAU":"BAU100%",
+                               "200% of BAU":"BAU200%"}
+    
+    dictTransformCutRegim = {"Normal (cuts as in BAU)":"Normal",
+                             "More clearcuts":"ClearCutsPlus",
+                             "More partial cuts":"PartialCutsPlus"}
+    
+    dictTransformClimateScenario = {"Baseline":"Baseline",
+                                    "RCP 4.5":"RCP45",
+                                    "RCP 8.5":"RCP85"}
+    
+    colorDictionnary = [""]
+    
+    variableFinal = (variable + " - " + familyArea)
+    
+    # dataTest = st.session_state.dictOfValuesForBasicMeasures[variableFinal][dictTransformBioHarvest[biomassHarvest]][dictTransformCutRegim[cutRegime]][dictTransformClimateScenario[climateScenario]]["Mean"]
+    
+    
+    # dataFrameTest = pd.DataFrame(st.session_state.dictOfValuesForBasicMeasures[variableFinal][dictTransformBioHarvest[biomassHarvest]][dictTransformCutRegim[cutRegime]][list(dictTransformClimateScenario.values())[0]]["Mean"],
+    #                               columns=[list(dictTransformClimateScenario.keys())[0]])
+    # dataFrameTest[list(dictTransformClimateScenario.keys())[1]] = st.session_state.dictOfValuesForBasicMeasures[variableFinal][dictTransformBioHarvest[biomassHarvest]][dictTransformCutRegim[cutRegime]][list(dictTransformClimateScenario.values())[1]]["Mean"]
+    # dataFrameTest[list(dictTransformClimateScenario.keys())[2]] = st.session_state.dictOfValuesForBasicMeasures[variableFinal][dictTransformBioHarvest[biomassHarvest]][dictTransformCutRegim[cutRegime]][list(dictTransformClimateScenario.values())[2]]["Mean"]
+    
+    
+    # st.line_chart(data=dataFrameTest,
+    #               color=["#5e81ac", "#DCA22E", "#bf616a"], width=0, height=0,
+    #               use_container_width=True)
+    
+    
+    listOfTimesteps = range(0, 110, 10)
+    listOfMeanDataSeries = [st.session_state.dictOfValuesForBasicMeasures[variableFinal][dictTransformBioHarvest[biomassHarvest]][dictTransformCutRegim[cutRegime]][list(dictTransformClimateScenario.values())[0]]["Mean"],
+                            st.session_state.dictOfValuesForBasicMeasures[variableFinal][dictTransformBioHarvest[biomassHarvest]][dictTransformCutRegim[cutRegime]][list(dictTransformClimateScenario.values())[1]]["Mean"],
+                            st.session_state.dictOfValuesForBasicMeasures[variableFinal][dictTransformBioHarvest[biomassHarvest]][dictTransformCutRegim[cutRegime]][list(dictTransformClimateScenario.values())[2]]["Mean"]]
+    listOfSDSeries = [st.session_state.dictOfValuesForBasicMeasures[variableFinal][dictTransformBioHarvest[biomassHarvest]][dictTransformCutRegim[cutRegime]][list(dictTransformClimateScenario.values())[0]]["SD"],
+                      st.session_state.dictOfValuesForBasicMeasures[variableFinal][dictTransformBioHarvest[biomassHarvest]][dictTransformCutRegim[cutRegime]][list(dictTransformClimateScenario.values())[1]]["SD"],
+                      st.session_state.dictOfValuesForBasicMeasures[variableFinal][dictTransformBioHarvest[biomassHarvest]][dictTransformCutRegim[cutRegime]][list(dictTransformClimateScenario.values())[2]]["SD"]]
+    listOfColors = ["#5e81ac", "#DCA22E", "#bf616a"]
+    listOfDataSeriesNames = ["Baseline", "RCP 4.5", "RCP 8.5"]
+    
+    chartsCurvesAndConfidence = CreateAltairChartWithMeanAndSD(listOfTimesteps,
+                                                               listOfDataSeriesNames,
+                                                               listOfMeanDataSeries,
+                                                               listOfSDSeries,
+                                                               listOfColors,
+                                                               variableFinal + " " + variableUnit[variable])
+    
+    st.altair_chart(chartsCurvesAndConfidence, use_container_width=True)
 
-colorDictionnary = [""]
-
-variableFinal = (variable + " - " + familyArea)
-
-# dataTest = st.session_state.dictOfValuesForBasicMeasures[variableFinal][dictTransformBioHarvest[biomassHarvest]][dictTransformCutRegim[cutRegime]][dictTransformClimateScenario[climateScenario]]["Mean"]
-
-
-# dataFrameTest = pd.DataFrame(st.session_state.dictOfValuesForBasicMeasures[variableFinal][dictTransformBioHarvest[biomassHarvest]][dictTransformCutRegim[cutRegime]][list(dictTransformClimateScenario.values())[0]]["Mean"],
-#                               columns=[list(dictTransformClimateScenario.keys())[0]])
-# dataFrameTest[list(dictTransformClimateScenario.keys())[1]] = st.session_state.dictOfValuesForBasicMeasures[variableFinal][dictTransformBioHarvest[biomassHarvest]][dictTransformCutRegim[cutRegime]][list(dictTransformClimateScenario.values())[1]]["Mean"]
-# dataFrameTest[list(dictTransformClimateScenario.keys())[2]] = st.session_state.dictOfValuesForBasicMeasures[variableFinal][dictTransformBioHarvest[biomassHarvest]][dictTransformCutRegim[cutRegime]][list(dictTransformClimateScenario.values())[2]]["Mean"]
-
-
-# st.line_chart(data=dataFrameTest,
-#               color=["#5e81ac", "#DCA22E", "#bf616a"], width=0, height=0,
-#               use_container_width=True)
-
-
-listOfTimesteps = range(0, 110, 10)
-listOfMeanDataSeries = [st.session_state.dictOfValuesForBasicMeasures[variableFinal][dictTransformBioHarvest[biomassHarvest]][dictTransformCutRegim[cutRegime]][list(dictTransformClimateScenario.values())[0]]["Mean"],
-                        st.session_state.dictOfValuesForBasicMeasures[variableFinal][dictTransformBioHarvest[biomassHarvest]][dictTransformCutRegim[cutRegime]][list(dictTransformClimateScenario.values())[1]]["Mean"],
-                        st.session_state.dictOfValuesForBasicMeasures[variableFinal][dictTransformBioHarvest[biomassHarvest]][dictTransformCutRegim[cutRegime]][list(dictTransformClimateScenario.values())[2]]["Mean"]]
-listOfSDSeries = [st.session_state.dictOfValuesForBasicMeasures[variableFinal][dictTransformBioHarvest[biomassHarvest]][dictTransformCutRegim[cutRegime]][list(dictTransformClimateScenario.values())[0]]["SD"],
-                  st.session_state.dictOfValuesForBasicMeasures[variableFinal][dictTransformBioHarvest[biomassHarvest]][dictTransformCutRegim[cutRegime]][list(dictTransformClimateScenario.values())[1]]["SD"],
-                  st.session_state.dictOfValuesForBasicMeasures[variableFinal][dictTransformBioHarvest[biomassHarvest]][dictTransformCutRegim[cutRegime]][list(dictTransformClimateScenario.values())[2]]["SD"]]
-listOfColors = ["#5e81ac", "#DCA22E", "#bf616a"]
-listOfDataSeriesNames = ["Baseline", "RCP 4.5", "RCP 8.5"]
-
-chartsCurvesAndConfidence = CreateAltairChartWithMeanAndSD(listOfTimesteps,
-                                                           listOfDataSeriesNames,
-                                                           listOfMeanDataSeries,
-                                                           listOfSDSeries,
-                                                           listOfColors,
-                                                           variableFinal + " " + variableUnit[variable])
-
-st.altair_chart(chartsCurvesAndConfidence, use_container_width=True)
+#%% DISPLAYING MAPS OF MOOSE HQI
 
 
 
