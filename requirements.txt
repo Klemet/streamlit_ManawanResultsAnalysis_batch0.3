@@ -1,2 +1,2 @@
 cryptography
-pygdal==3.2.2.*
+tifffile

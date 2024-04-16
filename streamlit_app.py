@@ -17,7 +17,7 @@ This script is under the format of a Streamlit app.
 
 import sys, os, glob, re
 import pandas as pd
-from osgeo import gdal
+# from osgeo import gdal
 import numpy as np
 import math
 import pickle
@@ -25,6 +25,7 @@ import streamlit as st
 import altair as alt
 import hmac
 from cryptography.fernet import Fernet
+import tifffile
 
 #%% CHECK PASSWORD
 
@@ -57,6 +58,13 @@ def check_password():
 
 if not check_password():
     st.stop()  # Do not continue if check_password is not True.
+    
+def readRasterTifffile(path):
+    """
+    Allows the reading of a .tif image data into a numpy array,
+    without using GDAL !
+    """
+    return(tifffile.imread(path))
 
 # Main Streamlit app starts here
 

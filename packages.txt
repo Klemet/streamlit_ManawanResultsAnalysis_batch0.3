@@ -1,2 +1,1 @@
-libgdal-dev
-gdal-bin=3.4.1+dfsg-1build4
+
