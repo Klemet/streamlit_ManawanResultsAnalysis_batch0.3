@@ -361,7 +361,7 @@ def CreateAltairChartWithMeanAndSD(listOfTimesteps,
 
 # We only load the dictionnary if not already loaded
 if 'dictOfValuesForBasicMeasures' not in st.session_state:
-    with open("./data/encrypted_Batch_0.3_dictOfValuesForBasicMeasures.txt", "rb") as f:
+    with open("./data/basicResults/encrypted_Batch_0.3_dictOfValuesForBasicMeasures.txt", "rb") as f:
         # Decrypt the data from memory
         file_contents = f.read()
         decrypted_data = Fernet(st.secrets["data_batch0_3_password"].encode()).decrypt(file_contents)
