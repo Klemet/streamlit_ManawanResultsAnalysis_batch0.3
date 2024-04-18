@@ -86,6 +86,7 @@ def loadNumpyArrayFromNextcloudTIFFile(webDaveClient, remoteFolder, remoteFileNa
     res1.write_to(buffer)
     tiff_buffer = io.BytesIO(buffer.getbuffer())
     image = tifffile.imread(tiff_buffer)
+    buffer.close()
     return(image)
 
 # Main Streamlit app starts here
@@ -556,8 +557,7 @@ if variable != "Moose Habitat Quality Index Maps":
 
 #%% DISPLAYING MAPS OF MOOSE HQI 
 
-
-if variable == "Moose Habitat Quality Index Maps":
+def createFigureOfMooseHQI(biomassHarvest, cutRegime, indexType):
     
     # img_array = loadNumpyArrayFromNextcloudTIFFile(client,
     #                                                "Data - StreamlitApps/appmanawanresultsanalysisbatch03.streamlit.app/Moose_HQI/Average and SD Rasters/Average/",
@@ -832,7 +832,15 @@ if variable == "Moose Habitat Quality Index Maps":
             progressIndicator += 6.6
     
     loading_indicator.write("")
-    st.pyplot(bigFigure)
+    return(bigFigure)
+
+if variable == "Moose Habitat Quality Index Maps":
+    
+    figureMapMooseHQI = createFigureOfMooseHQI(biomassHarvest,
+                                               cutRegime,
+                                               indexType)
+    st.pyplot(figureMapMooseHQI)
+    
 
 
 #%% UP NEXT
