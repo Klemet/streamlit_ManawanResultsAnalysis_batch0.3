@@ -34,7 +34,10 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from webdav3.client import Client
 from rasterio.plot import show
 from rasterio.mask import mask
+from scipy.ndimage import zoom
+import skimage
 
+matplotlib.use('agg')
 #%% CHECK PASSWORD
 
 # Restricts the usage of the app to people without password.
@@ -74,19 +77,31 @@ def readRasterTifffile(path):
     """
     return(tifffile.imread(path))
 
-def loadNumpyArrayFromNextcloudTIFFile(webDaveClient, remoteFolder, remoteFileName):
+def loadNumpyArrayFromNextcloudTIFFile(webDavClientOptions, remoteFolder, remoteFileName, resize2X = True):
     """
     Done after a lot of tweaking around with perplexity.
     The function does not need to save a local file, and downloads things relatively
     quickly.
     Can be used with the nextcloud of ComputeCanada.
+    Reduces the resoltuion by dividing by 2 to reduce memory usage from strealit; can be overriden.
     """
-    res1 = webDaveClient.resource(remoteFolder + remoteFileName)
+    webDavClient = Client(webDavClientOptions)
+    res1 = webDavClient.resource(remoteFolder + remoteFileName)
     buffer = io.BytesIO()
     res1.write_to(buffer)
     tiff_buffer = io.BytesIO(buffer.getbuffer())
     image = tifffile.imread(tiff_buffer)
+    if resize2X:
+        # Uses bilinear interpolation (local mean). Should be better.
+        image = skimage.transform.resize_local_mean(image, (int(image.shape[0]/2), int(image.shape[1]/2)))
+        # Uses nearest-neighbor interpolation. Not great for continuous variables as we're doing here.
+        # image = zoom(image, (0.5, 0.5), order=0, prefilter=False)
+    # We close and delete objects, just in case, for RAM usage.
     buffer.close()
+    tiff_buffer.close()
+    del(webDavClient)
+    del(buffer)
+    del(tiff_buffer)
     return(image)
 
 # Main Streamlit app starts here
@@ -95,6 +110,9 @@ def loadNumpyArrayFromNextcloudTIFFile(webDaveClient, remoteFolder, remoteFileNa
 
 # matplotlib.use('SVG')
 
+# DEBUG
+
+# pathToDebugRaster = r"D:\OneDrive - UQAM\1 - Projets\Thèse - Simulations Manawan projet DIVERSE\3 - Résultats\simulation_batch_v0.22_Manawan_WithMagicHarvest_Narval\Moose_HQI\Average and SD Rasters\Average\BAU-Baseline_Average_HQI_Moose_DUSSAULT_Timestep_30.tif"
 
 
 #%% PREPARING CLIENT TO ACCESS REMOTE FILES ON NEXTCLOUD
@@ -104,19 +122,19 @@ def loadNumpyArrayFromNextcloudTIFFile(webDaveClient, remoteFolder, remoteFileNa
 # into a buffer, and loaded into a numpy array without creating local files (see loadNumpyArrayFromNextcloudTIFFile)
 # It's a bit slower than I'd want, but it works.
 
-options = {
+webDavClientOptions = {
  'webdav_hostname': st.secrets["nextcloudAdress"],
  'webdav_login':    st.secrets["nextcloudUser"],
  'webdav_password': st.secrets["nextcloudPasswordApp"]
 }
 
-# options = {
+# webDavClientOptions = {
 #   'webdav_hostname': "https://nextcloud.computecanada.ca/remote.php/dav/files/chardy2/",
 #   'webdav_login':    "chardy2",
 #   'webdav_password': "HCXko-MoKW8-xSQ7A-XGtxk-5DHJJ"
 # }
 
-webDavClient = Client(options)
+# webDavClient = Client(options)
 # client.list()
 
 # client.list("Data - StreamlitApps/appmanawanresultsanalysisbatch03.streamlit.app/Moose_HQI/Average and SD Rasters/Average/")
@@ -164,6 +182,7 @@ webDavClient = Client(options)
 #     rasterData = raster.GetRasterBand(1)
 #     rasterData = rasterData.ReadAsArray()
 #     rasterData - rasterData.astype('float64')
+#     # rasterData = zoom(rasterData, (0.5, 0.5), order=0, prefilter=False)
 #     return(np.array(rasterData))
 
 # def getRasterDataAsList(path):
@@ -466,6 +485,7 @@ if 'variableList' not in st.session_state or "variableUnit" not in st.session_st
     variableList = [s.split(char_to_remove)[0] for s in variableList]
     # We add the "HQI moose map" variable
     variableList.append("Moose Habitat Quality Index Maps")
+    variableList.append("Area of all forest types")
     variableList = sorted(list(set(variableList)))
     
     # We make the list of familly territories
@@ -513,10 +533,9 @@ if variable == "Moose Habitat Quality Index Maps":
                                    0)
 # climateScenario = st.selectbox("Choose the climate scenario : ", ["Baseline", "RCP 4.5", "RCP 8.5"])
 
-
 #%% DISPLAYING GRAPHS OF BASIC MEASURES
 
-if variable != "Moose Habitat Quality Index Maps":
+if variable != "Moose Habitat Quality Index Maps" and variable != "Area of all forest types":
     
     colorDictionnary = [""]
     
@@ -555,6 +574,11 @@ if variable != "Moose Habitat Quality Index Maps":
     
     st.altair_chart(chartsCurvesAndConfidence, use_container_width=True)
 
+#%% DISPLAYING AREA CHARTS FOR FOREST TYPES
+
+
+
+
 #%% DISPLAYING MAPS OF MOOSE HQI 
 
 def createFigureOfMooseHQI(biomassHarvest, cutRegime, indexType):
@@ -563,6 +587,10 @@ def createFigureOfMooseHQI(biomassHarvest, cutRegime, indexType):
     #                                                "Data - StreamlitApps/appmanawanresultsanalysisbatch03.streamlit.app/Moose_HQI/Average and SD Rasters/Average/",
     #                                                "BAU50%-ClearCutsPlus-Baseline_Average_HQI_Moose_KOITZSCH_Timestep_50.tif")
     # fig = plt.figure(figsize=(6, 6))
+    # biomassHarvest = "50% of BAU"
+    # cutRegime = "More clearcuts"
+    # indexType = "DUSSAULT"
+    
     
     loading_indicator = st.empty()
     progressIndicator = 0
@@ -608,9 +636,10 @@ def createFigureOfMooseHQI(biomassHarvest, cutRegime, indexType):
     # We define the "Mask" for the raster, to avoid displaying 0 values/pixels
     # This mask is simply the timestep 0 raster.
     if 'maskRasterMooseHQI' not in st.session_state:
-        maskRasterMooseHQI = loadNumpyArrayFromNextcloudTIFFile(webDavClient,
+        maskRasterMooseHQI = loadNumpyArrayFromNextcloudTIFFile(webDavClientOptions,
                                                                 pathOfMooseHQIRasters,
                                                                 dictT0Raster[indexType])
+        # maskRasterMooseHQI = getRasterData(pathToDebugRaster)
     maskRasterMooseHQI = np.where(maskRasterMooseHQI > 0, 1, 0)
     
     progressIndicator = 5
@@ -631,9 +660,10 @@ def createFigureOfMooseHQI(biomassHarvest, cutRegime, indexType):
     dictAxis["exampleRaster"] = createAxisForRaster([0.4-rightAxisModifier, 0.8-bottomAxisModifier, 0.198, 0.2], bigFigure, disableAxis = True)
     dictAxis["exampleRaster"].zorder = 3 # We prepare to pu the legend below
     if 'exampleMeanRaster' not in st.session_state:
-        exampleMeanRaster = loadNumpyArrayFromNextcloudTIFFile(webDavClient,
+        exampleMeanRaster = loadNumpyArrayFromNextcloudTIFFile(webDavClientOptions,
                                                                 pathOfMooseHQIRasters,
-                                                                "Average/BAU50%-ClearCutsPlus-Baseline_Average_HQI_Moose_KOITZSCH_Timestep_30.tif")
+                                                                "Average/" + str(bioHarvestedHQI) + "-" + str(cutRegimeHQI) + "-" + str(listClimateScenarios[0]) + "_Average_HQI_Moose_" + indexType +  "_Timestep_30.tif")
+        # exampleMeanRaster = getRasterData(pathToDebugRaster)
     exeampleMeanRasterShow = show(exampleMeanRaster, ax=dictAxis["exampleRaster"],
                                   alpha=1, cmap = 'viridis')
     exeampleMeanRasterShow = exeampleMeanRasterShow.get_images()[0]
@@ -655,9 +685,10 @@ def createFigureOfMooseHQI(biomassHarvest, cutRegime, indexType):
     dictAxis["exampleRasterSD"] = createAxisForRaster([0.60-rightAxisModifier, 0.90-bottomAxisModifier, 0.100, 0.087], bigFigure, disableAxis = True)
     dictAxis["exampleRasterSD"].zorder = 3 # We prepare to pu the legend below
     if 'exampleSDRaster' not in st.session_state:
-        exampleSDRaster = loadNumpyArrayFromNextcloudTIFFile(webDavClient,
+        exampleSDRaster = loadNumpyArrayFromNextcloudTIFFile(webDavClientOptions,
                                                                 pathOfMooseHQIRasters,
-                                                                "SD/BAU50%-ClearCutsPlus-Baseline_SD_HQI_Moose_KOITZSCH_Timestep_30.tif")
+                                                                "SD/" + str(bioHarvestedHQI) + "-" + str(cutRegimeHQI) + "-" + str(listClimateScenarios[0]) + "_SD_HQI_Moose_" + indexType +  "_Timestep_30.tif")
+        # exampleSDRaster = getRasterData(pathToDebugRaster)
     exampleSDRasterShow = show(exampleSDRaster, ax=dictAxis["exampleRasterSD"],
                                 alpha=1, cmap = 'magma')
     exampleSDRasterShow = exampleSDRasterShow.get_images()[0]
@@ -761,8 +792,6 @@ def createFigureOfMooseHQI(biomassHarvest, cutRegime, indexType):
     # We fill the axis
     # WARNING : Be careful about the order here !
     # from bottom to top, then left to right
-    
-    
     listOfMeanRasters = ["Average/" + str(bioHarvestedHQI) + "-" + str(cutRegimeHQI) + "-" + str(listClimateScenarios[0]) + "_Average_HQI_Moose_" + indexType +  "_Timestep_100.tif",
                           "Average/" + str(bioHarvestedHQI) + "-" + str(cutRegimeHQI) + "-" + str(listClimateScenarios[0]) + "_Average_HQI_Moose_" + indexType +  "_Timestep_50.tif",
                           "Average/" + str(bioHarvestedHQI) + "-" + str(cutRegimeHQI) + "-" + str(listClimateScenarios[0]) + "_Average_HQI_Moose_" + indexType +  "_Timestep_30.tif",
@@ -800,9 +829,10 @@ def createFigureOfMooseHQI(biomassHarvest, cutRegime, indexType):
             if testingScript:
                 meanRaster = exampleMeanRaster
             else:
-                meanRaster = loadNumpyArrayFromNextcloudTIFFile(webDavClient,
+                meanRaster = loadNumpyArrayFromNextcloudTIFFile(webDavClientOptions,
                                                                 pathOfMooseHQIRasters,
                                                                 listOfMeanRasters[y + 4 * x])
+                # meanRaster = getRasterData(pathToDebugRaster)
             meanRasterShow = show(meanRaster, ax=dictAxis["Mean-" + str((x, y))],
                                           alpha=1, cmap = 'viridis')
             meanRasterShow = meanRasterShow.get_images()[0]
@@ -813,9 +843,10 @@ def createFigureOfMooseHQI(biomassHarvest, cutRegime, indexType):
                 if testingScript:
                     SDRaster = exampleSDRaster
                 else:
-                    SDRaster = loadNumpyArrayFromNextcloudTIFFile(webDavClient,
+                    SDRaster = loadNumpyArrayFromNextcloudTIFFile(webDavClientOptions,
                                                                   pathOfMooseHQIRasters,
                                                                   listOfSDRasters[y + 4 * x])
+                    # SDRaster = getRasterData(pathToDebugRaster)
                 SDRasterShow = show(SDRaster, ax=dictAxis["SD-" + str((x, y))],
                                             alpha=1, cmap = 'magma')
                 SDRasterShow = SDRasterShow.get_images()[0]
@@ -840,8 +871,24 @@ if variable == "Moose Habitat Quality Index Maps":
                                                cutRegime,
                                                indexType)
     st.pyplot(figureMapMooseHQI)
-    
 
+
+#%% DEBUG : DISPLAY LOCAL VARIABLES AND SIZE ?
+
+# def sizeof_fmt(num, suffix='B'):
+#     for unit in ['','Ki','Mi','Gi','Ti','Pi','Ei','Zi']:
+#         if abs(num) < 1024.0:
+#             return "%3.1f%s%s" % (num, unit, suffix)
+#         num /= 1024.0
+#     return "%.1f%s%s" % (num, 'Yi', suffix)
+
+# local_vars = locals()
+# env_vars = [(key, sys.getsizeof(value)) for key, value in local_vars.items()]
+# env_vars.sort(key=lambda x: x[1], reverse=True)
+
+# for key, size in env_vars:
+#     st.text(f"{key}: {sizeof_fmt(size)}")
+#     print(f"{key}: {sizeof_fmt(size)}")
 
 #%% UP NEXT
 
