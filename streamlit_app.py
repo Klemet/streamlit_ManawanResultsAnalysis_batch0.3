@@ -77,6 +77,53 @@ def readRasterTifffile(path):
     """
     return(tifffile.imread(path))
 
+def bilinear_resize(arr, new_shape):
+    """
+    Resize a 2D NumPy array using bilinear interpolation.
+    
+    Args:
+        arr (np.ndarray): The input 2D array to be resized.
+        new_shape (tuple): The new shape (height, width) of the resized array.
+    
+    Returns:
+        np.ndarray: The resized 2D array.
+    """
+    height, width = arr.shape
+    new_height, new_width = new_shape
+
+    # Create meshgrid of original and new coordinates
+    x = np.linspace(0, width - 1, width)
+    y = np.linspace(0, height - 1, height)
+    new_x = np.linspace(0, width - 1, new_width)
+    new_y = np.linspace(0, height - 1, new_height)
+    
+    xx, yy = np.meshgrid(new_x, new_y)
+
+    # Perform bilinear interpolation
+    resized_arr = np.zeros((new_height, new_width))
+    for i in range(new_height):
+        for j in range(new_width):
+            x1 = int(xx[i, j])
+            y1 = int(yy[i, j])
+            x2 = min(x1 + 1, width - 1)
+            y2 = min(y1 + 1, height - 1)
+            
+            # Bilinear interpolation formula
+            q11 = arr[y1, x1]
+            q12 = arr[y2, x1]
+            q21 = arr[y1, x2]
+            q22 = arr[y2, x2]
+            
+            dx = xx[i, j] - x1
+            dy = yy[i, j] - y1
+            
+            resized_arr[i, j] = (1 - dx) * (1 - dy) * q11 + \
+                               (1 - dx) * dy * q12 + \
+                               dx * (1 - dy) * q21 + \
+                               dx * dy * q22
+    
+    return resized_arr
+
 def loadNumpyArrayFromNextcloudTIFFile(webDavClientOptions, remoteFolder, remoteFileName, resize2X = True):
     """
     Done after a lot of tweaking around with perplexity.
@@ -91,11 +138,18 @@ def loadNumpyArrayFromNextcloudTIFFile(webDavClientOptions, remoteFolder, remote
     res1.write_to(buffer)
     tiff_buffer = io.BytesIO(buffer.getbuffer())
     image = tifffile.imread(tiff_buffer)
+    # We remove NaN; if there is a single one, the resized map becomes all NaNs
+    # because of skimage.transform.resize_local_mean.
+    # REMOVED : Numpy function bilinear_resize given by perplexity works even better
+    # and handles NaN with no problems.
+    # image = np.nan_to_num(image, nan=0.0)
     if resize2X:
         # Uses bilinear interpolation (local mean). Should be better.
-        image = skimage.transform.resize_local_mean(image, (int(image.shape[0]/2), int(image.shape[1]/2)))
+        # image = skimage.transform.resize_local_mean(image, (int(image.shape[0]/2), int(image.shape[1]/2)))
         # Uses nearest-neighbor interpolation. Not great for continuous variables as we're doing here.
         # image = zoom(image, (0.5, 0.5), order=0, prefilter=False)
+        # Bilinear with custom numpy function
+        image = bilinear_resize(image, (int(image.shape[0]/2), int(image.shape[1]/2)))
     # We close and delete objects, just in case, for RAM usage.
     buffer.close()
     tiff_buffer.close()
@@ -103,6 +157,7 @@ def loadNumpyArrayFromNextcloudTIFFile(webDavClientOptions, remoteFolder, remote
     del(buffer)
     del(tiff_buffer)
     return(image)
+
 
 # Main Streamlit app starts here
 
@@ -146,28 +201,34 @@ webDavClientOptions = {
 # image = tifffile.imread(tiff_buffer)
 
 # DEBUG : Tests the connection by displayng a raster.
-# img_array = loadNumpyArrayFromNextcloudTIFFile(webDavClient,
+# img_array = loadNumpyArrayFromNextcloudTIFFile(webDavClientOptions,
 #                                                 "Data - StreamlitApps/appmanawanresultsanalysisbatch03.streamlit.app/Moose_HQI/Average and SD Rasters/Average/",
-#                                                 "BAU50%-ClearCutsPlus-Baseline_Average_HQI_Moose_KOITZSCH_Timestep_50.tif")
+#                                                 "BAU100%-NormalCuts-Baseline_Average_HQI_Moose_KOITZSCH_Timestep_100.tif")
 
 
 # remoteFolder = "Data - StreamlitApps/appmanawanresultsanalysisbatch03.streamlit.app/Moose_HQI/Average and SD Rasters/Average/"
-# remoteFileName = "BAU50%-ClearCutsPlus-Baseline_Average_HQI_Moose_KOITZSCH_Timestep_50.tif"
+# remoteFileName = "BAU100%-NormalCuts-RCP45_Average_HQI_Moose_KOITZSCH_Timestep_100.tif"
 
+# webDavClient = Client(webDavClientOptions)
 # res1 = webDavClient.resource(remoteFolder + remoteFileName)
 # buffer = io.BytesIO()
 # res1.write_to(buffer)
 
 # # NOT faster at all
-# webDavClient.download_sync(remote_path=remoteFolder + remoteFileName,
-#                            local_path="file1.tif")
+# # webDavClient.download_sync(remote_path=remoteFolder + remoteFileName,
+# #                             local_path="file1.tif")
 
 # tiff_buffer = io.BytesIO(buffer.getbuffer())
 # image = tifffile.imread(tiff_buffer)
+# print(np.any(np.isnan(image)))
+# np.argwhere(np.isnan(image))
+# image = np.nan_to_num(image, nan=0.0)
+# image = skimage.transform.resize_local_mean(image, (int(image.shape[0]/2), int(image.shape[1]/2)))
+# image = bilinear_resize(image, (int(image.shape[0]/2), int(image.shape[1]/2)))
 
-
+# matplotlib.use('qtagg')
 # fig = plt.figure(figsize=(6, 6))
-# plt.imshow(img_array)
+# plt.imshow(image)
 # st.pyplot(fig)
 
 # testArray = tifffile.imread("file1.tif")
@@ -891,6 +952,9 @@ if variable == "Moose Habitat Quality Index Maps":
 #     print(f"{key}: {sizeof_fmt(size)}")
 
 #%% UP NEXT
+
+# Display map with visual zone along with result curves (put the family area raster
+# safely in Nextcloud, change password)
 
 # AREA CHART FOR FOREST TYPES :
 # https://altair-viz.github.io/user_guide/marks/area.html
