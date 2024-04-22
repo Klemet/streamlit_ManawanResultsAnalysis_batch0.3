@@ -674,6 +674,8 @@ def createFigureOfMooseHQI(biomassHarvest, cutRegime, indexType):
     dictTicksSD = {"KOITZSCH":[0, 0.5],
                     "DUSSAULT":[0, 0.6]}
     
+    ecoregion_mask_raster = "ecoregions_Mask.tif"
+    
     # Gotta use a dict that is a little bit different here because of differences
     # in the data labels.
     dictTransformCutRegim2 = {"Normal (cuts as in BAU)":"NormalCuts",
@@ -699,7 +701,7 @@ def createFigureOfMooseHQI(biomassHarvest, cutRegime, indexType):
     if 'maskRasterMooseHQI' not in st.session_state:
         maskRasterMooseHQI = loadNumpyArrayFromNextcloudTIFFile(webDavClientOptions,
                                                                 pathOfMooseHQIRasters,
-                                                                dictT0Raster[indexType])
+                                                                ecoregion_mask_raster)
         # maskRasterMooseHQI = getRasterData(pathToDebugRaster)
     maskRasterMooseHQI = np.where(maskRasterMooseHQI > 0, 1, 0)
     
