@@ -132,12 +132,6 @@ webDavClientOptions = {
  'webdav_password': st.secrets["nextcloudPasswordApp"]
 }
 
-# webDavClientOptions = {
-#   'webdav_hostname': "https://nextcloud.computecanada.ca/remote.php/dav/files/chardy2/",
-#   'webdav_login':    "chardy2",
-#   'webdav_password': "HCXko-MoKW8-xSQ7A-XGtxk-5DHJJ"
-# }
-
 # webDavClient = Client(options)
 # client.list()
 
@@ -919,11 +913,6 @@ if variable == "Moose Habitat Quality Index Maps":
 
 # CHARTS WITH INTERACTIVE LEGEND TO ISOLATE LINES BY OPACITY
 # https://github.com/altair-viz/altair/issues/984#issuecomment-591978609
-
-
-# CREATE COMPLEX MAPS OF MOOSE HQI
-# Make a dictionnary with the np.arrays of all the maps..and encrypt it ?
-# Maybe no need to encrypt 
 
 # MAKE THINGS PRETTY
 # Customise banner, etc.
