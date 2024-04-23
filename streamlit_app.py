@@ -34,8 +34,10 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from webdav3.client import Client
 from rasterio.plot import show
 from rasterio.mask import mask
+import rasterio
 from scipy.ndimage import zoom
-import skimage
+# import skimage
+import pydeck as pdk
 
 matplotlib.use('agg')
 #%% CHECK PASSWORD
@@ -77,6 +79,18 @@ def readRasterTifffile(path):
     """
     return(tifffile.imread(path))
 
+def loadRessourceWebDav(webDavClientOptions, remoteFolder, remoteFileName):
+    webDavClient = Client(webDavClientOptions)
+    res1 = webDavClient.resource(remoteFolder + remoteFileName)
+    buffer = io.BytesIO()
+    res1.write_to(buffer)
+    file_buffer = io.BytesIO(buffer.getbuffer())
+    # We close and delete objects, just in case, for RAM usage.
+    buffer.close()
+    del(webDavClient)
+    del(buffer)
+    return(file_buffer)
+
 def loadNumpyArrayFromNextcloudTIFFile(webDavClientOptions, remoteFolder, remoteFileName, resize2X = True):
     """
     Done after a lot of tweaking around with perplexity.
@@ -85,28 +99,89 @@ def loadNumpyArrayFromNextcloudTIFFile(webDavClientOptions, remoteFolder, remote
     Can be used with the nextcloud of ComputeCanada.
     Reduces the resoltuion by dividing by 2 to reduce memory usage from strealit; can be overriden.
     """
-    webDavClient = Client(webDavClientOptions)
-    res1 = webDavClient.resource(remoteFolder + remoteFileName)
-    buffer = io.BytesIO()
-    res1.write_to(buffer)
-    tiff_buffer = io.BytesIO(buffer.getbuffer())
+    tiff_buffer = loadRessourceWebDav(webDavClientOptions, remoteFolder, remoteFileName)
     image = tifffile.imread(tiff_buffer)
     # We remove NaN; if there is a single one, the resized map becomes all NaNs
     # because of skimage.transform.resize_local_mean.
     image = np.nan_to_num(image, nan=0.0)
     if resize2X:
         # Uses bilinear interpolation (local mean). Should be better.
-        image = skimage.transform.resize_local_mean(image, (int(image.shape[0]/2), int(image.shape[1]/2)))
+        # image = skimage.transform.resize_local_mean(image, (int(image.shape[0]/2), int(image.shape[1]/2)))
         # Uses nearest-neighbor interpolation. Not great for continuous variables as we're doing here.
-        # image = zoom(image, (0.5, 0.5), order=0, prefilter=False)
-    # We close and delete objects, just in case, for RAM usage.
-    buffer.close()
-    tiff_buffer.close()
-    del(webDavClient)
-    del(buffer)
-    del(tiff_buffer)
+        image = zoom(image, (0.5, 0.5), order=1, prefilter=False)
     return(image)
 
+def displayPydeckMp(geoDataFrame_areas_Manawan, familyAreaName):
+    # We load the raster dataset with rasterio
+    
+    # raster_FamilyZone = rasterio.open(rasterFilePath)
+    # raster_FamilyZone_data = raster_FamilyZone.read()
+    
+    # # We transform the raster into a polygon readable by pydeck
+    # shapes = rasterio.features.shapes(raster_FamilyZone.read(1), transform=raster_FamilyZone.transform)
+    
+    # polygons_list = []
+    # for geom, value in shapes:
+    #     if value > 0:
+    #         polygons_list.append(geom)
+    #         # st.text(str(geom))
+            
+    # polygons_latlon = [rasterio.warp.transform_geom(raster_FamilyZone.crs, 'EPSG:4326', polygon) for polygon in polygons_list]
+            
+        
+    # polygon_final_list = list()
+    # for polygon in polygons_latlon:
+    #     # st.text(str(polygon))
+    #     polygon_final_list.append(polygon["coordinates"])
+        
+    # st.text(str(polygon_final_list))
+    
+    # We select the polygons to display
+    selected_polygons = geoDataFrame_areas_Manawan[geoDataFrame_areas_Manawan['FAMILLE'] == familyAreaName]
+    # st.text(str(selected_polygons))
+    
+    # We put it in a list format that pydeck can read by extracting the coordinates
+    polygon_final_list = list()
+    for polygon in selected_polygons.geometry.apply(lambda g: list(g.exterior.coords)):
+        # st.text(str(polygon))
+        polygon_final_list.append(polygon)
+        # st.text(str(polygon))
+    
+    # st.text(str(polygon_final_list))
+    
+    # Create the Deck object
+    # Initial view is centered on manawan
+    tooltip = {"html": "<b>Zone considered in the results</b>"}
+    
+    r = pdk.Deck(
+        layers=[
+            pdk.Layer(
+                'PolygonLayer',
+                polygon_final_list,
+                stroked=False,
+                pickable=True,
+                extruded=True,
+                auto_highlight=True,
+                get_polygon='-',
+                get_fill_color=[191, 97, 106, 100]
+            )],
+        initial_view_state = pdk.ViewState(
+            latitude=47.207744,
+            longitude=-74.374665,
+            zoom=7,
+            pitch=45,
+            bearing=0
+        ),
+        map_style='mapbox://styles/mapbox/outdoors-v12',
+        tooltip=tooltip
+    )
+
+    # We display the object with a title
+    # r.to_html('raster_chart.html')
+    
+    # Display in streamlit
+    st.markdown("<h2 style='text-align: center;'>" + "Zone considered for the results" + "</h2>", unsafe_allow_html=True)
+    st.pydeck_chart(pydeck_obj=r, use_container_width=False)
 
 # Main Streamlit app starts here
 
@@ -480,6 +555,16 @@ if 'dictOfValuesForBasicMeasures' not in st.session_state:
     # We put the variable in st.session; this way, no need to re-do this part if already loaded.
     st.session_state.dictOfValuesForBasicMeasures = retrieved_dict
 
+# We also retrieve the encrypted geodataframe
+if 'geoDataFrame_areas_Manawan' not in st.session_state:
+    with open("./data/geoDataFrame_areas_Manawan.txt", "rb") as f:
+        # Decrypt the data from memory
+        file_contents = f.read()
+        decrypted_data = Fernet(st.secrets["data_batch0_3_password"].encode()).decrypt(file_contents)
+        geoDataFrame_areas_Manawan = pickle.loads(decrypted_data)
+        
+    st.session_state.geoDataFrame_areas_Manawan = geoDataFrame_areas_Manawan
+    
 #%% ASKING FOR VARIABLES TO DISPLAY
 
 if 'variableList' not in st.session_state or "variableUnit" not in st.session_state:
@@ -576,6 +661,8 @@ if variable != "Moose Habitat Quality Index Maps" and variable != "Area of all f
                                                                listOfColors,
                                                                variableFinal + " " + variableUnit[variable])
     
+    # We display map with family area of interest
+    displayPydeckMp(st.session_state.geoDataFrame_areas_Manawan, familyArea)
     st.altair_chart(chartsCurvesAndConfidence, use_container_width=True)
 
 
@@ -921,6 +1008,8 @@ if variable == "Area of all forest types":
                 "#8fbcbb",
                 "#548C8B"]
     
+    displayPydeckMp(st.session_state.geoDataFrame_areas_Manawan, familyArea)
+    
     for climateScenario in list(dictTransformClimateScenario.keys()):
         # We display a title for the climate scenario of each graph
         st.markdown("<h2 style='text-align: center;'>" + climateScenario + "</h2>", unsafe_allow_html=True)
@@ -931,6 +1020,8 @@ if variable == "Area of all forest types":
                     alt.Order("OrderInChart"))
         
         st.altair_chart(stackChart, use_container_width=True)
+        
+    
         
 
 #%% DEBUG : DISPLAY LOCAL VARIABLES AND SIZE ?
@@ -954,10 +1045,6 @@ if variable == "Area of all forest types":
 
 # Display map with visual zone along with result curves (put the family area raster
 # safely in Nextcloud, change password)
-
-# AREA CHART FOR FOREST TYPES :
-# https://altair-viz.github.io/user_guide/marks/area.html
-
 
 # CHARTS SIDE BY SIDE FOR COMPARING
 
