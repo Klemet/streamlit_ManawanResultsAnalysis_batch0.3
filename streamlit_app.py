@@ -465,7 +465,7 @@ def CreateAltairChartWithMeanAndSD(listOfTimesteps,
 # Password is in secrets
 
 # This is for debug in spyder :
-# os.chdir(r"D:\OneDrive - UQAM\1 - Projets\Thèse - Simulations Manawan projet DIVERSE\3 - Résultats\Streamlit_Results_Apps\batch0.3_results_analysis")
+# os.chdir(r"D:\OneDrive - UQAM\1 - Projets\Thèse - Simulations Manawan projet DIVERSE\3 - Résultats\Streamlit_Results_Apps\batch0.3_results_analysis_GITHUB\streamlit_ManawanResultsAnalysis_batch0.3")
 
 # We only load the dictionnary if not already loaded
 if 'dictOfValuesForBasicMeasures' not in st.session_state:
@@ -577,10 +577,6 @@ if variable != "Moose Habitat Quality Index Maps" and variable != "Area of all f
                                                                variableFinal + " " + variableUnit[variable])
     
     st.altair_chart(chartsCurvesAndConfidence, use_container_width=True)
-
-#%% DISPLAYING AREA CHARTS FOR FOREST TYPES
-
-
 
 
 #%% DISPLAYING MAPS OF MOOSE HQI 
@@ -878,6 +874,64 @@ if variable == "Moose Habitat Quality Index Maps":
                                                indexType)
     st.pyplot(figureMapMooseHQI)
 
+#%% STACKS OF FOREST AREA
+
+# From https://altair-viz.github.io/user_guide/marks/area.html#normalized-stacked-area-chart
+
+if variable == "Area of all forest types":
+    
+    # We make the data set to adapt to the Altair functions
+    dictDataFrames = dict()
+    
+    for climateScenario in list(dictTransformClimateScenario.keys()):
+    
+        forestTypes = ["Young Maple Grove",
+                       "Old Maple Grove",
+                       "Young Deciduous Forest",
+                       "Old Deciduous Forest",
+                       "Young Coniferous Forest",
+                       "Old Coniferous Forest",
+                       "Young Mixed Forest",
+                       "Old Mixed Forest"]
+        
+        timesteps = list(range(0, 110, 10))
+        dataFrameForestTypesStack = pd.DataFrame([item for item in forestTypes for _ in range(len(timesteps))], columns=(["Variable"]))
+        dataFrameForestTypesStack["Timestep"] = timesteps * len(forestTypes)
+        dataFrameForestTypesStack["OrderInChart"] = [item for item in list(range(0, len(forestTypes))) for _ in range(len(timesteps))]
+        
+        listOfValues = list()
+        for forestType in forestTypes:
+            variableName = forestType + " - " + familyArea
+            listOfValues.extend(st.session_state.dictOfValuesForBasicMeasures[variableName][dictTransformBioHarvest[biomassHarvest]][dictTransformCutRegim[cutRegime]][dictTransformClimateScenario[climateScenario]]["Mean"])
+
+        dataFrameForestTypesStack["Values"] = listOfValues
+        
+        dictDataFrames[climateScenario] = dataFrameForestTypesStack.copy(deep=True)
+
+    
+    
+    # We display the graphs
+    
+    colorList = ["#bf616a",
+                "#742F36",
+                "#ebcb8b",
+                "#DCA22E",
+                "#a3be8c",
+                "#6E9051",
+                "#8fbcbb",
+                "#548C8B"]
+    
+    for climateScenario in list(dictTransformClimateScenario.keys()):
+        # We display a title for the climate scenario of each graph
+        st.markdown("<h2 style='text-align: center;'>" + climateScenario + "</h2>", unsafe_allow_html=True)
+        stackChart = alt.Chart(dictDataFrames[climateScenario]).mark_area().encode(
+                    alt.X("Timestep").axis(domain=False, tickSize=0),
+                    alt.Y("Values:Q").stack("normalize"),
+                    alt.Color("Variable:N").sort(forestTypes).scale(alt.Scale(range=colorList)),
+                    alt.Order("OrderInChart"))
+        
+        st.altair_chart(stackChart, use_container_width=True)
+        
 
 #%% DEBUG : DISPLAY LOCAL VARIABLES AND SIZE ?
 
