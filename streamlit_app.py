@@ -180,7 +180,7 @@ def displayPydeckMp(geoDataFrame_areas_Manawan, familyAreaName):
     # r.to_html('raster_chart.html')
     
     # Display in streamlit
-    st.markdown("<h2 style='text-align: center;'>" + "Zone considered for the results" + "</h2>", unsafe_allow_html=True)
+    st.markdown("<h3 style='text-align: center;'>" + "Zone considered for the results - " + str(familyArea) + "</h3>", unsafe_allow_html=True)
     st.pydeck_chart(pydeck_obj=r, use_container_width=False)
 
 # Main Streamlit app starts here
@@ -515,10 +515,15 @@ def CreateAltairChartWithMeanAndSD(listOfTimesteps,
     dataFrameCurves = dataFrameForestTypesStack = pd.DataFrame(listOfTimestepValues, columns=(["y"]))
     dataFrameCurves["y"] = listOfMeanValues
     dataFrameCurves["Climate Scenario"] = listOfScenarios
-    dataFrameCurves["Variability"] = listOfScenarios
+    # dataFrameCurves["Variability"] = listOfScenarios
     dataFrameCurves["x"] = listOfTimestepValues
     dataFrameCurves["y_upper"] = listofYUppwer
     dataFrameCurves["y_downer"] = listOfYDowner
+    
+    # selector = alt.selection_single(
+    # fields=['Climate Scenario'], 
+    # empty='all',
+    # bind='legend')
     
     # We create the curve and confidence interval charts
     # that we are going to combine
@@ -534,7 +539,7 @@ def CreateAltairChartWithMeanAndSD(listOfTimesteps,
         x=alt.X("x", axis=alt.Axis(title="Time step")),
         y='y_downer',
         y2='y_upper',
-        color=alt.Color('Variability:N',
+        color=alt.Color('Climate Scenario:N',
                     scale=alt.Scale(domain=listOfScenarioNames,
                       range=listOfColors), legend = None) # Legend none to avoid double label in legend
     )
@@ -543,6 +548,9 @@ def CreateAltairChartWithMeanAndSD(listOfTimesteps,
     comboOfChart = curve + confidence_interval
     comboOfChart.configure_range(
         category=alt.RangeScheme(listOfColors))
+    # comboOfChart.add_selection(
+    # selector).transform_filter(
+    # selector)
     return(comboOfChart.resolve_scale(color='independent').configure_axis(grid=False))
 
 
@@ -672,10 +680,19 @@ if variable != "Moose Habitat Quality Index Maps" and variable != "Area of all f
                                                                listOfSDSeries,
                                                                listOfColors,
                                                                ["Baseline", "RCP 4.5", "RCP 8.5"],
-                                                               variableFinal + " " + variableUnit[variable])
+                                                               variable + " " + variableUnit[variable])
     
     # We display map with family area of interest
     displayPydeckMp(st.session_state.geoDataFrame_areas_Manawan, familyArea)
+    
+    # We display a title
+    st.markdown("<h4 style='text-align: center;'>" +
+                "Variation of " + str(variable) +
+                # " in area of " + str(familyArea) +
+                " in harvest scenario " + str(biomassHarvest) + " and " + str(cutRegime) +
+                " accross the 3 climate scenarios" + "</h4>", unsafe_allow_html=True)
+
+    # We display the chart
     st.altair_chart(chartsCurvesAndConfidence, use_container_width=True)
 
 
@@ -1064,8 +1081,7 @@ if variable == "Area of all forest types":
 # https://altair-viz.github.io/user_guide/compound_charts.html
 # See vertical/horizontal concatenation
 
-
-# CHARTS WITH INTERACTIVE LEGEND TO ISOLATE LINES BY OPACITY
+# CHARTS WITH INTERACTIVE LEGEND TO ISOLATE LINES BY OPACITY ?
 # https://github.com/altair-viz/altair/issues/984#issuecomment-591978609
 
 # MAKE THINGS PRETTY
