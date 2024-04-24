@@ -871,6 +871,16 @@ if 'geoDataFrame_areas_Manawan' not in st.session_state:
         
     st.session_state.geoDataFrame_areas_Manawan = geoDataFrame_areas_Manawan
     
+#%% DISPLAYING TITLE AND BANNER
+
+st.markdown("<h1 style='text-align: center;'>" + "📊 LANDIS-II Manawan Results Visualisator" + "</h1>", unsafe_allow_html=True)
+
+st.markdown("<p style='text-align: left;'>" + "Welcome ! Here, you can visualize results from the LANDIS-II simulation for the manawan area and the family area it contains." + "</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: left;'>" + "Just select the variable you want to display, the area you want to look at, and the harvesting scenario. The results will display the values for 3 different climate scenarios : Baseline (no climate change), RCP 4.5 (climate change) and RCP 8.5 (intense climate change)." + "</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: left;'>" + "Current version of the simulations : v0.3" + "</p>", unsafe_allow_html=True)
+st.markdown("</br></br>", unsafe_allow_html=True)
+
+
 #%% ASKING FOR VARIABLES TO DISPLAY
 
 if 'variableList' not in st.session_state or "variableUnit" not in st.session_state:
