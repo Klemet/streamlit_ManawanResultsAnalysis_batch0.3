@@ -567,7 +567,7 @@ def createFigureOfMooseHQI(biomassHarvest, cutRegime, indexType):
     
     loading_indicator = st.empty()
     progressIndicator = 0
-    loading_indicator.write("⚙ Generating figure : " + str(progressIndicator) + "%")
+    loading_indicator.write("⚙ Downloading additional data to generate figure : " + str(progressIndicator) + "%")
     
     pathOfMooseHQIRasters = "Data - StreamlitApps/appmanawanresultsanalysisbatch03.streamlit.app/Moose_HQI/Average and SD Rasters/"
     
@@ -618,7 +618,7 @@ def createFigureOfMooseHQI(biomassHarvest, cutRegime, indexType):
     maskRasterMooseHQI = np.where(maskRasterMooseHQI > 0, 1, 0)
     
     progressIndicator = 5
-    loading_indicator.write("Generating figure : " + str(progressIndicator) + "%")
+    loading_indicator.write("⚙ Downloading additional data to generate figure : " + str(progressIndicator) + "%")
     # We make the cmap for the mask
     # Color map for fire raster
     levels = [0, 1, 999]
@@ -644,7 +644,7 @@ def createFigureOfMooseHQI(biomassHarvest, cutRegime, indexType):
     exeampleMeanRasterShow = exeampleMeanRasterShow.get_images()[0]
     show(maskRasterMooseHQI, ax=dictAxis["exampleRaster"], alpha=1, cmap = cmapMooseMask)
     progressIndicator = 10
-    loading_indicator.write("⚙ Generating figure : " + str(progressIndicator) + "%")
+    loading_indicator.write("⚙ Downloading additional data to generate figure : " + str(progressIndicator) + "%")
     
     
     # We display a legend on the side for the average raster
@@ -669,7 +669,7 @@ def createFigureOfMooseHQI(biomassHarvest, cutRegime, indexType):
     exampleSDRasterShow = exampleSDRasterShow.get_images()[0]
     show(maskRasterMooseHQI, ax=dictAxis["exampleRasterSD"], alpha=1, cmap = cmapMooseMask)
     progressIndicator = 15
-    loading_indicator.write("⚙ Generating figure : " + str(progressIndicator) + "%")
+    loading_indicator.write("⚙ Downloading additional data to generate figure : " + str(progressIndicator) + "%")
     
     # We display a legend for the variability raster
     exampleSDRasterShow.set_clim([0, dictYlim[indexType]/2])
@@ -793,14 +793,14 @@ def createFigureOfMooseHQI(biomassHarvest, cutRegime, indexType):
                           "SD/" + str(bioHarvestedHQI) + "-" + str(cutRegimeHQI) + "-" + str(listClimateScenarios[2]) + "_SD_HQI_Moose_" + indexType +  "_Timestep_30.tif"]
     
     progressIndicator = 20
-    loading_indicator.write("⚙ Generating figure : " + str(progressIndicator) + "%")
+    loading_indicator.write("⚙ Downloading additional data to generate figure : " + str(progressIndicator) + "%")
     
     testingScript = False
     
     for x in range(0, 3):
         for y in range (0, 4):
             
-            loading_indicator.write("⚙ Generating figure : " + str(round(progressIndicator, 2)) + "%")
+            loading_indicator.write("⚙ Downloading additional data to generate figure : " + str(round(progressIndicator, 2)) + "%")
             if testingScript:
                 meanRaster = exampleMeanRaster
             else:
