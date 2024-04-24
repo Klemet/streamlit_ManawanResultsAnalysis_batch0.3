@@ -161,7 +161,7 @@ def displayPydeckMp(geoDataFrame_areas_Manawan, familyAreaName):
                 stroked=False,
                 pickable=True,
                 extruded=True,
-                auto_highlight=True,
+                # auto_highlight=True,
                 get_polygon='-',
                 get_fill_color=[191, 97, 106, 100]
             )],
@@ -492,46 +492,58 @@ def CreateAltairChartWithMeanAndSD(listOfTimesteps,
                                    listOfMeanDataSeries,
                                    listOfSDSeries,
                                    listOfColors,
+                                   listOfScenarioNames,
                                    variableName):
     """Given a list of mean data series + list of SD,
     returns an altair chart layer superposing all of the curves +
     standard deviation areas around them.
     ListOfColors must same length as listOfMeanDataSeries and listOfSDSeries."""
-    # We put everything as data frames
-    listOfDataFrames = list()
-    for i in range(0, len(listOfMeanDataSeries)):
-        dataFrame = pd.DataFrame({'x': listOfTimesteps,
-                                  'y': listOfMeanDataSeries[i],
-                                  'y_upper': [x + y for x, y in zip(listOfMeanDataSeries[i], listOfSDSeries[i])],
-                                  'y_downer': [x - y for x, y in zip(listOfMeanDataSeries[i], listOfSDSeries[i])]})
-        listOfDataFrames.append(dataFrame)
     
-    # Next, we create the charts
-    listOfCurves = list()
-    listOfSDArea = list()
+    # We create the dataframe containing all of the data,
+    # in the format that altair needs
+    listOfMeanValues = list()
+    listOfTimestepValues = list()
+    listofYUppwer = list()
+    listOfYDowner = list()
+    listOfScenarios = list()
     for i in range(0, len(listOfMeanDataSeries)):
-        colorToUse = listOfColors[i]
-        
-        curve = alt.Chart(listOfDataFrames[i]).mark_line(color=colorToUse).encode(
-            x=alt.X("x", axis=alt.Axis(title="Time step")),
-            y=alt.Y("y", axis=alt.Axis(title=variableName)),
-        ).properties(title=listOfDataSeriesNames[i])
-        
-        confidence_interval = alt.Chart(listOfDataFrames[i]).mark_area(opacity = 0.4, fill=colorToUse).encode(
-            x=alt.X("x", axis=alt.Axis(title="Time step")),
-            y='y_downer',
-            y2='y_upper',
-        ).properties(title=listOfDataSeriesNames[i])
-        
-        listOfCurves.append(curve)
-        listOfSDArea.append(confidence_interval)
-        
-    # Then, we sum everything and return
-    listOfSDArea.extend(listOfCurves)
-    sumOfCharts = listOfSDArea[0]
-    for i in range(1, len(listOfSDArea)):
-        sumOfCharts += listOfSDArea[i]
-    return(sumOfCharts.resolve_scale(color='independent').configure_axis(grid=False))
+        listOfMeanValues.extend(listOfMeanDataSeries[i])
+        listOfTimestepValues.extend(listOfTimesteps)
+        listOfScenarios.extend([listOfScenarioNames[i]] * len(listOfTimesteps))
+        listofYUppwer.extend([x + y for x, y in zip(listOfMeanDataSeries[i], listOfSDSeries[i])])
+        listOfYDowner.extend([x - y for x, y in zip(listOfMeanDataSeries[i], listOfSDSeries[i])])
+    dataFrameCurves = dataFrameForestTypesStack = pd.DataFrame(listOfTimestepValues, columns=(["y"]))
+    dataFrameCurves["y"] = listOfMeanValues
+    dataFrameCurves["Climate Scenario"] = listOfScenarios
+    dataFrameCurves["Variability"] = listOfScenarios
+    dataFrameCurves["x"] = listOfTimestepValues
+    dataFrameCurves["y_upper"] = listofYUppwer
+    dataFrameCurves["y_downer"] = listOfYDowner
+    
+    # We create the curve and confidence interval charts
+    # that we are going to combine
+    curve = alt.Chart(dataFrameCurves).mark_line().encode(
+        x=alt.X("x", axis=alt.Axis(title="Time step")),
+        y=alt.Y("y", axis=alt.Axis(title=variableName)),
+        color=alt.Color('Climate Scenario:N',
+                    scale=alt.Scale(domain=listOfScenarioNames,
+                      range=listOfColors))
+    )
+
+    confidence_interval = alt.Chart(dataFrameCurves).mark_area(opacity = 0.4).encode(
+        x=alt.X("x", axis=alt.Axis(title="Time step")),
+        y='y_downer',
+        y2='y_upper',
+        color=alt.Color('Variability:N',
+                    scale=alt.Scale(domain=listOfScenarioNames,
+                      range=listOfColors), legend = None) # Legend none to avoid double label in legend
+    )
+    
+    # We combine the layers and return the chart
+    comboOfChart = curve + confidence_interval
+    comboOfChart.configure_range(
+        category=alt.RangeScheme(listOfColors))
+    return(comboOfChart.resolve_scale(color='independent').configure_axis(grid=False))
 
 
 #%% RETRIEVING ENCRYPTED DATA FOR BATCH 0.3
@@ -659,6 +671,7 @@ if variable != "Moose Habitat Quality Index Maps" and variable != "Area of all f
                                                                listOfMeanDataSeries,
                                                                listOfSDSeries,
                                                                listOfColors,
+                                                               ["Baseline", "RCP 4.5", "RCP 8.5"],
                                                                variableFinal + " " + variableUnit[variable])
     
     # We display map with family area of interest
