@@ -62,10 +62,10 @@ def check_password():
 
     # Show input for password.
     st.text_input(
-        "Password", type="password", on_change=password_entered, key="password"
+        "🔑 Mot de passe", type="password", on_change=password_entered, key="password"
     )
     if "password_correct" in st.session_state:
-        st.error("😕 Password incorrect")
+        st.error("😕 Mot de passe incorrect")
     return False
 
 
@@ -142,6 +142,50 @@ webDavClientOptions = {
 # np.save('my_array.npy', testArray)
 # with open('my_array.pkl', 'wb') as f:
 #     pickle.dump(testArray, f)
+
+#%% DEFINING TRANSLATION OBJECTS AND OVER OBJECTS
+
+# Dictionnary to translate the variable names in my LANDIS-II outputs (EN) into french
+variablesENtoFR = {'Total Biomass':"Biomasse totale",
+                    'Mean Max Age':"Age Moyen des forêts",
+                    'Biomass Harvested':"Biomasse récoltée",
+                    'Surface Burned':"Surface brulée par les feux",
+                    'Young Maple Grove':"Jeunes érablières",
+                    'Old Maple Grove':"Vieilles érablières",
+                    'Young Deciduous Forest':"Jeunes forêts feuillues",
+                    'Old Deciduous Forest':"Vieilles forêts feuillues",
+                    'Young Coniferous Forest':"Jeunes forêts résineuses",
+                    'Old Coniferous Forest':"Vieilles forêts résineuses",
+                    'Young Mixed Forest':"Jeunes forêts mixtes",
+                    'Old Mixed Forest':"Vieilles forêts mixtes",
+                    'Moose Koitzsch Habitat Quality Average':"Moyenne de l'IQH de Koitzsch",
+                    'Moose Dussault Habitat Quality Average':"Moyenne de l'IQH de Dussault",
+                    'Biomass of ABIE.BAL':"Biomasse de sapin baumier",
+                    'Biomass of ACER.RUB':"Biomasse d'érable rouge",
+                    'Biomass of ACER.SAH':"Biomasse d'érable à sucre",
+                    'Biomass of BETU.ALL':"Biomasse de bouleau jaune",
+                    'Biomass of BETU.PAP':"Biomasse de bouleau blanc",
+                    'Biomass of FAGU.GRA':"Biomasse de hêtre a grandes feuilles",
+                    'Biomass of LARI.LAR':"Biomasse de tamarak (mélèze laricin)",
+                    'Biomass of LARI.HYB':"Biomasse de mélèze hybride",
+                    'Biomass of PICE.GLA':"Biomasse d'épinette blanche",
+                    'Biomass of PICE.MAR':"Biomasse d'épinette noire",
+                    'Biomass of PICE.RUB':"Biomasse d'épinette rouge",
+                    'Biomass of PINU.BAN':"Biomasse de pin gris",
+                    'Biomass of PINU.RES':"Biomasse de pin rouge",
+                    'Biomass of PINU.STR':"Biomasse de pin blanc",
+                    'Biomass of POPU.TRE':"Biomasse de peuplier faux-tremble",
+                    'Biomass of POPU.HYB':"Biomasse de peuplier hybride",
+                    'Biomass of QUER.RUB':"Biomasse de chêne rouge",
+                    'Biomass of THUJ.SPP.ALL':"Biomasse de thuja occidental",
+                    'Biomass of TSUG.CAN':"Biomasse de pruche du Canada"}
+
+variablesFRtoEN = {val: key for (key, val) in variablesENtoFR.items()}
+
+variablesToHide = ['Moose Koitzsch Habitat Quality Average',
+                   'Moose Dussault Habitat Quality Average',
+                   'Biomass of LARI.HYB',
+                   'Biomass of POPU.HYB']
 
 #%% DEFINING FUNCTIONS
 
@@ -453,7 +497,7 @@ def displayPydeckMp(geoDataFrame_areas_Manawan, familyAreaName):
     
     # Create the Deck object
     # Initial view is centered on manawan
-    tooltip = {"html": "<b>Zone considered in the results</b>"}
+    tooltip = {"html": "<b>Zone considérée pour les résultats affichés</b>"}
     
     r = pdk.Deck(
         layers=[
@@ -482,7 +526,7 @@ def displayPydeckMp(geoDataFrame_areas_Manawan, familyAreaName):
     # r.to_html('raster_chart.html')
     
     # Display in streamlit
-    st.markdown("<h3 style='text-align: center;'>" + "Zone considered for the results - " + str(familyArea) + "</h3>", unsafe_allow_html=True)
+    st.markdown("<h3 style='text-align: center;'>" + "Zone considérée pour les résultats affichés - " + str(familyArea) + "</h3>", unsafe_allow_html=True)
     st.pydeck_chart(pydeck_obj=r, use_container_width=False)
 
 #%% PLOTTING FUNCTIONS
@@ -514,7 +558,7 @@ def CreateAltairChartWithMeanAndSD(listOfTimesteps,
         listOfYDowner.extend([x - y for x, y in zip(listOfMeanDataSeries[i], listOfSDSeries[i])])
     dataFrameCurves = dataFrameForestTypesStack = pd.DataFrame(listOfTimestepValues, columns=(["y"]))
     dataFrameCurves["y"] = listOfMeanValues
-    dataFrameCurves["Climate Scenario"] = listOfScenarios
+    dataFrameCurves["Scénario climatique"] = listOfScenarios
     # dataFrameCurves["Variability"] = listOfScenarios
     dataFrameCurves["x"] = listOfTimestepValues
     dataFrameCurves["y_upper"] = listofYUppwer
@@ -528,18 +572,18 @@ def CreateAltairChartWithMeanAndSD(listOfTimesteps,
     # We create the curve and confidence interval charts
     # that we are going to combine
     curve = alt.Chart(dataFrameCurves).mark_line().encode(
-        x=alt.X("x", axis=alt.Axis(title="Time step")),
+        x=alt.X("x", axis=alt.Axis(title="Temps (année)")),
         y=alt.Y("y", axis=alt.Axis(title=variableName)),
-        color=alt.Color('Climate Scenario:N',
+        color=alt.Color('Scénario climatique:N',
                     scale=alt.Scale(domain=listOfScenarioNames,
                       range=listOfColors))
     )
 
     confidence_interval = alt.Chart(dataFrameCurves).mark_area(opacity = 0.4).encode(
-        x=alt.X("x", axis=alt.Axis(title="Time step")),
+        x=alt.X("x", axis=alt.Axis(title="Temps (année)")),
         y='y_downer',
         y2='y_upper',
-        color=alt.Color('Climate Scenario:N',
+        color=alt.Color('Scénario climatique:N',
                     scale=alt.Scale(domain=listOfScenarioNames,
                       range=listOfColors), legend = None) # Legend none to avoid double label in legend
     )
@@ -567,7 +611,7 @@ def createFigureOfMooseHQI(biomassHarvest, cutRegime, indexType):
     
     loading_indicator = st.empty()
     progressIndicator = 0
-    loading_indicator.write("⚙ Downloading additional data to generate figure : " + str(progressIndicator) + "%")
+    loading_indicator.write("⚙ Chargement de données additionnelles pour générer la figure : " + str(progressIndicator) + "%")
     
     pathOfMooseHQIRasters = "Data - StreamlitApps/appmanawanresultsanalysisbatch03.streamlit.app/Moose_HQI/Average and SD Rasters/"
     
@@ -590,9 +634,9 @@ def createFigureOfMooseHQI(biomassHarvest, cutRegime, indexType):
     
     # Gotta use a dict that is a little bit different here because of differences
     # in the data labels.
-    dictTransformCutRegim2 = {"Normal (cuts as in BAU)":"NormalCuts",
-                             "More clearcuts":"ClearCutsPlus",
-                             "More partial cuts":"PartialCutsPlus"}
+    dictTransformCutRegim2 = {"Normal (régime de coupes actuel)":"NormalCuts",
+                             "Coupes à blanc deux fois plus fréquentes":"ClearCutsPlus",
+                             "Coupes partielles deux fois plus fréquentes":"PartialCutsPlus"}
     bioHarvestedHQI = dictTransformBioHarvest[biomassHarvest]
     cutRegimeHQI = dictTransformCutRegim2[cutRegime]
     listClimateScenarios = ["Baseline", "RCP45", "RCP85"]
@@ -618,7 +662,7 @@ def createFigureOfMooseHQI(biomassHarvest, cutRegime, indexType):
     maskRasterMooseHQI = np.where(maskRasterMooseHQI > 0, 1, 0)
     
     progressIndicator = 5
-    loading_indicator.write("⚙ Downloading additional data to generate figure : " + str(progressIndicator) + "%")
+    loading_indicator.write("⚙ Chargement de données additionnelles pour générer la figure : " + str(progressIndicator) + "%")
     # We make the cmap for the mask
     # Color map for fire raster
     levels = [0, 1, 999]
@@ -644,7 +688,7 @@ def createFigureOfMooseHQI(biomassHarvest, cutRegime, indexType):
     exeampleMeanRasterShow = exeampleMeanRasterShow.get_images()[0]
     show(maskRasterMooseHQI, ax=dictAxis["exampleRaster"], alpha=1, cmap = cmapMooseMask)
     progressIndicator = 10
-    loading_indicator.write("⚙ Downloading additional data to generate figure : " + str(progressIndicator) + "%")
+    loading_indicator.write("⚙ Chargement de données additionnelles pour générer la figure : " + str(progressIndicator) + "%")
     
     
     # We display a legend on the side for the average raster
@@ -669,7 +713,7 @@ def createFigureOfMooseHQI(biomassHarvest, cutRegime, indexType):
     exampleSDRasterShow = exampleSDRasterShow.get_images()[0]
     show(maskRasterMooseHQI, ax=dictAxis["exampleRasterSD"], alpha=1, cmap = cmapMooseMask)
     progressIndicator = 15
-    loading_indicator.write("⚙ Downloading additional data to generate figure : " + str(progressIndicator) + "%")
+    loading_indicator.write("⚙ Chargement de données additionnelles pour générer la figure : " + str(progressIndicator) + "%")
     
     # We display a legend for the variability raster
     exampleSDRasterShow.set_clim([0, dictYlim[indexType]/2])
@@ -678,20 +722,20 @@ def createFigureOfMooseHQI(biomassHarvest, cutRegime, indexType):
                         location = "right", ticks = dictTicksSD[indexType])
     
     # We display some text to explain
-    titleOfFigure = 'Habitat Quality Map for the Moose - Index of ' + dictTitle[indexType]
+    titleOfFigure = 'Qualité d\'habitat pour l\'orignal - Indice de ' + dictTitle[indexType]
     bigFigure.text(0.32-rightAxisModifier - len(titleOfFigure) * 0.0019, 1.01-bottomAxisModifier, 
                     titleOfFigure, 
                     fontsize = 22,
                     fontweight = "bold",
                     color = "#2e3440")
     bigFigure.text(0.222-rightAxisModifier, 0.885-bottomAxisModifier, 
-                    "Average between\nreplicates", 
+                    "Moyenne entre\nréplicas", 
                     fontsize = "medium",
                     color = "#2e3440",
                     weight = "medium",
                     horizontalalignment = "center")
     bigFigure.text(0.85-rightAxisModifier, 0.93-bottomAxisModifier, 
-                    "Variability between\nreplicates", 
+                    "Variabilité entre\nréplicas", 
                     fontsize = "medium",
                     color = "#2e3440",
                     weight = "medium",
@@ -793,14 +837,14 @@ def createFigureOfMooseHQI(biomassHarvest, cutRegime, indexType):
                           "SD/" + str(bioHarvestedHQI) + "-" + str(cutRegimeHQI) + "-" + str(listClimateScenarios[2]) + "_SD_HQI_Moose_" + indexType +  "_Timestep_30.tif"]
     
     progressIndicator = 20
-    loading_indicator.write("⚙ Downloading additional data to generate figure : " + str(progressIndicator) + "%")
+    loading_indicator.write("⚙ Chargement de données additionnelles pour générer la figure : " + str(progressIndicator) + "%")
     
     testingScript = False
     
     for x in range(0, 3):
         for y in range (0, 4):
             
-            loading_indicator.write("⚙ Downloading additional data to generate figure : " + str(round(progressIndicator, 2)) + "%")
+            loading_indicator.write("⚙ Chargement de données additionnelles pour générer la figure : " + str(round(progressIndicator, 2)) + "%")
             if testingScript:
                 meanRaster = exampleMeanRaster
             else:
@@ -870,16 +914,16 @@ if 'geoDataFrame_areas_Manawan' not in st.session_state:
         geoDataFrame_areas_Manawan = pickle.loads(decrypted_data)
         
     st.session_state.geoDataFrame_areas_Manawan = geoDataFrame_areas_Manawan
-    
+
 #%% DISPLAYING TITLE AND BANNER
 
-st.markdown("<h1 style='text-align: center;'>" + "📊 LANDIS-II Manawan Results Visualisator" + "</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center;'>" + "📊 Visualisateur de résultats de LANDIS-II pour Manawan" + "</h1>", unsafe_allow_html=True)
 
-st.markdown("<p style='text-align: left;'>" + "Welcome ! Here, you can visualize results from the LANDIS-II simulation for the manawan area and the family areas it contains." + "</p>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: left;'>" + "Just select the variable you want to display, the area you want to look at, and the harvesting scenario. The results will display the values for 3 different climate scenarios : Baseline (no climate change), RCP 4.5 (climate change) and RCP 8.5 (intense climate change)." + "</p>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: left;'>" + "Current version of the simulations : v0.3" + "</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: left;'>" + "👋 Bienvenue ! Cet outil vous permet de visualiser des résultats de simulation de LANDIS-II pour la zone de Manawan et les territoires familiaux qu'elle contient." + "</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: left;'>" + "➡️ Selectionnez à l'aide des listes déroulantes ci-dessous la variable que vous voulez afficher, la zone que vous voulez considérer, et le scénario de récolte." + "</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: left;'>" + "📈 Les résultats afficherons ensuite les changements de la variable pour les 3 scénarios climatiques : Baseline (pas de changement climatique), RCP 4.5 (changement climatique) et RCP 8.5 (changement climatique intense)." + "</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: left;'><i>" + "Version actuelle des simulations : v0.3" + "</i></p>", unsafe_allow_html=True)
 st.markdown("</br></br>", unsafe_allow_html=True)
-
 
 #%% ASKING FOR VARIABLES TO DISPLAY
 
@@ -888,10 +932,17 @@ if 'variableList' not in st.session_state or "variableUnit" not in st.session_st
     variableList = st.session_state.dictOfValuesForBasicMeasures.keys()
     char_to_remove = ' - '
     variableList = [s.split(char_to_remove)[0] for s in variableList]
+    variableList = list(set(variableList))
+    for variabletoHide in variablesToHide:
+        variableList.remove(variabletoHide)
+    # Putting the list in nice format
+    variableListFR = list()
+    for variable in variableList:
+        variableListFR.append(variablesENtoFR[variable])
     # We add the "HQI moose map" variable
-    variableList.append("Moose Habitat Quality Index Maps")
-    variableList.append("Area of all forest types")
-    variableList = sorted(list(set(variableList)))
+    variableListFR.append("Cartes de qualité d'habitat pour l'orignal")
+    variableListFR.append("Aire des différents types de forêt")
+    variableListFR = sorted(list(set(variableListFR)))
     
     # We make the list of familly territories
     famillyAreasNames = st.session_state.dictOfValuesForBasicMeasures.keys()
@@ -901,50 +952,49 @@ if 'variableList' not in st.session_state or "variableUnit" not in st.session_st
 
     # Dictionnary of variables units
     variableUnit = dict()
-    for variable in variableList:
-        if "Biomass" in variable:
-            variableUnit[variable] = "(Mg)"
-        elif "Max Age" in variable:
-            variableUnit[variable] = "(Years)"
-        elif "Forest" in variable or "Surface" in variable:
+    for variable in variableListFR:
+        if "Biomasse" in variable:
+            variableUnit[variable] = "(Tonnes)"
+        elif "Age" in variable:
+            variableUnit[variable] = "(Année)"
+        elif "forêt" in variable or "Surface" in variable or "érablière" in variable:
             variableUnit[variable] = "(Hectares)"
         else:
             variableUnit[variable] = ""
             
     # Dictionnaries to transform things back to select things
-    dictTransformBioHarvest = {"50% of BAU":"BAU50%",
-                               "100% of BAU":"BAU100%",
-                               "200% of BAU":"BAU200%"}
+    dictTransformBioHarvest = {"50% du volume récolté habituellement":"BAU50%",
+                               "100% du volume récolté habituellement":"BAU100%",
+                               "200% du volume récolté habituellement":"BAU200%"}
     
-    dictTransformCutRegim = {"Normal (cuts as in BAU)":"Normal",
-                             "More clearcuts":"ClearCutsPlus",
-                             "More partial cuts":"PartialCutsPlus"}
+    dictTransformCutRegim = {"Normal (régime de coupes actuel)":"Normal",
+                             "Coupes à blanc deux fois plus fréquentes":"ClearCutsPlus",
+                             "Coupes partielles deux fois plus fréquentes":"PartialCutsPlus"}
     
-    dictTransformClimateScenario = {"Baseline":"Baseline",
-                                    "RCP 4.5":"RCP45",
-                                    "RCP 8.5":"RCP85"}
+    dictTransformClimateScenario = {"Baseline (sans changement climatiques)":"Baseline",
+                                    "RCP 4.5 (changements climatiques modérés)":"RCP45",
+                                    "RCP 8.5 (changements climatiques sévères)":"RCP85"}
 
-variable = st.selectbox("Choose the variable to display : ", variableList, list(variableList).index('Total Biomass'))
-if variable != "Moose Habitat Quality Index Maps":
-    familyArea = st.selectbox("Choose the family area to display : ", famillyAreasNames, list(famillyAreasNames).index('Territoire Manawan Entier'))
+variableFR = st.selectbox("Choisir la variable à afficher : ", variableListFR, list(variableListFR).index('Biomasse totale'))
+if variableFR != "Cartes de qualité d'habitat pour l'orignal":
+    familyArea = st.selectbox("Choisir la zone à considérer pour les résultats : ", famillyAreasNames, list(famillyAreasNames).index('Territoire Manawan Entier'))
 # otherVariable = st.selectbox("Choose the variable to display : ", st.session_state.dictOfValuesForBasicMeasures.keys())
-biomassHarvest = st.selectbox("Choose the intensity of harvesting : ", ["50% of BAU", "100% of BAU", "200% of BAU"], 1)
-cutRegime = st.selectbox("Choose the cutting regime : ", ["Normal (cuts as in BAU)",
-                                                          "More clearcuts",
-                                                          "More partial cuts"], 0)
-if variable == "Moose Habitat Quality Index Maps":
-    indexType = st.selectbox("Select a Moose HQI index type : ",
+biomassHarvest = st.selectbox("Choisir l'intensité de la récolte : ", dictTransformBioHarvest.keys(), 1)
+cutRegime = st.selectbox("Choisir le régime de coupe : ", dictTransformCutRegim.keys(), 0)
+if variableFR == "Cartes de qualité d'habitat pour l'orignal":
+    indexType = st.selectbox("Choisir un l'indice à utiliser pour la qualité d'habitat pour l'orignal : ",
                                    ["DUSSAULT", "KOITZSCH"],
                                    0)
 # climateScenario = st.selectbox("Choose the climate scenario : ", ["Baseline", "RCP 4.5", "RCP 8.5"])
 
 #%% DISPLAYING GRAPHS OF BASIC MEASURES
 
-if variable != "Moose Habitat Quality Index Maps" and variable != "Area of all forest types":
+if variableFR != "Cartes de qualité d'habitat pour l'orignal" and variableFR != "Aire des différents types de forêt":
     
     colorDictionnary = [""]
     
-    variableFinal = (variable + " - " + familyArea)
+    
+    variableFinal = (variablesFRtoEN[variableFR] + " - " + familyArea)
     
     # dataTest = st.session_state.dictOfValuesForBasicMeasures[variableFinal][dictTransformBioHarvest[biomassHarvest]][dictTransformCutRegim[cutRegime]][dictTransformClimateScenario[climateScenario]]["Mean"]
     
@@ -976,17 +1026,17 @@ if variable != "Moose Habitat Quality Index Maps" and variable != "Area of all f
                                                                listOfSDSeries,
                                                                listOfColors,
                                                                ["Baseline", "RCP 4.5", "RCP 8.5"],
-                                                               variable + " " + variableUnit[variable])
+                                                               variableFR + " " + variableUnit[variableFR])
     
     # We display map with family area of interest
     displayPydeckMp(st.session_state.geoDataFrame_areas_Manawan, familyArea)
     
     # We display a title
     st.markdown("<h4 style='text-align: center;'>" +
-                "Variation of " + str(variable) +
+                "Variation de " + str(variableFR) +
                 # " in area of " + str(familyArea) +
-                " in harvest scenario " + str(biomassHarvest) + " and " + str(cutRegime) +
-                " accross the 3 climate scenarios" + "</h4>", unsafe_allow_html=True)
+                " pour le scénario de récolte " + str(biomassHarvest) + " et " + str(cutRegime) +
+                " à travers les 3 scénarios climatiques" + "</h4>", unsafe_allow_html=True)
 
     # We display the chart
     st.altair_chart(chartsCurvesAndConfidence, use_container_width=True)
@@ -995,7 +1045,7 @@ if variable != "Moose Habitat Quality Index Maps" and variable != "Area of all f
 #%% DISPLAYING MAPS OF MOOSE HQI 
 
 
-if variable == "Moose Habitat Quality Index Maps":
+if variableFR == "Cartes de qualité d'habitat pour l'orignal":
     
     figureMapMooseHQI = createFigureOfMooseHQI(biomassHarvest,
                                                cutRegime,
@@ -1006,7 +1056,7 @@ if variable == "Moose Habitat Quality Index Maps":
 
 # From https://altair-viz.github.io/user_guide/marks/area.html#normalized-stacked-area-chart
 
-if variable == "Area of all forest types":
+if variableFR == "Aire des différents types de forêt":
     
     # We make the data set to adapt to the Altair functions
     dictDataFrames = dict()
@@ -1021,10 +1071,18 @@ if variable == "Area of all forest types":
                        "Old Coniferous Forest",
                        "Young Mixed Forest",
                        "Old Mixed Forest"]
+        forestTypesFR = ["Jeunes érablières",
+                       "Vieilles érablières",
+                       "Jeunes forêts feuillues",
+                       "Vieilles forêts feuillues",
+                       "Jeunes forêts résineuses",
+                       "Vieilles forêts résineuses",
+                       "Jeunes forêts mixtes",
+                       "Vieilles forêts mixtes"]
         
         timesteps = list(range(0, 110, 10))
-        dataFrameForestTypesStack = pd.DataFrame([item for item in forestTypes for _ in range(len(timesteps))], columns=(["Variable"]))
-        dataFrameForestTypesStack["Timestep"] = timesteps * len(forestTypes)
+        dataFrameForestTypesStack = pd.DataFrame([item for item in forestTypesFR for _ in range(len(timesteps))], columns=(["Variable"]))
+        dataFrameForestTypesStack["Temps (Années)"] = timesteps * len(forestTypes)
         dataFrameForestTypesStack["OrderInChart"] = [item for item in list(range(0, len(forestTypes))) for _ in range(len(timesteps))]
         
         listOfValues = list()
@@ -1032,7 +1090,7 @@ if variable == "Area of all forest types":
             variableName = forestType + " - " + familyArea
             listOfValues.extend(st.session_state.dictOfValuesForBasicMeasures[variableName][dictTransformBioHarvest[biomassHarvest]][dictTransformCutRegim[cutRegime]][dictTransformClimateScenario[climateScenario]]["Mean"])
 
-        dataFrameForestTypesStack["Values"] = listOfValues
+        dataFrameForestTypesStack["Aire (% de la zone considérée)"] = listOfValues
         
         dictDataFrames[climateScenario] = dataFrameForestTypesStack.copy(deep=True)
 
@@ -1055,9 +1113,9 @@ if variable == "Area of all forest types":
         # We display a title for the climate scenario of each graph
         st.markdown("<h2 style='text-align: center;'>" + climateScenario + "</h2>", unsafe_allow_html=True)
         stackChart = alt.Chart(dictDataFrames[climateScenario]).mark_area().encode(
-                    alt.X("Timestep").axis(domain=False, tickSize=0),
-                    alt.Y("Values:Q").stack("normalize"),
-                    alt.Color("Variable:N").sort(forestTypes).scale(alt.Scale(range=colorList)),
+                    alt.X("Temps (Années)").axis(domain=False, tickSize=0),
+                    alt.Y("Aire (% de la zone considérée):Q").stack("normalize"),
+                    alt.Color("Variable:N").sort(forestTypesFR).scale(alt.Scale(range=colorList)),
                     alt.Order("OrderInChart"))
         
         st.altair_chart(stackChart, use_container_width=True)

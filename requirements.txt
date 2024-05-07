@@ -5,4 +5,5 @@ matplotlib
 gdown
 webdavclient3
 rasterio
+scikit-image
 geopandas
