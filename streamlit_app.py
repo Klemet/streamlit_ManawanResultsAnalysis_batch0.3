@@ -948,6 +948,7 @@ if 'variableList' not in st.session_state or "variableUnit" not in st.session_st
     famillyAreasNames = st.session_state.dictOfValuesForBasicMeasures.keys()
     char_to_remove = ' - '
     famillyAreasNames = [s.split(char_to_remove)[1] for s in famillyAreasNames]
+    famillyAreasNames.remove("Territoire Manawan Entier")
     famillyAreasNames = sorted(list(set(famillyAreasNames)))
 
     # Dictionnary of variables units
@@ -977,7 +978,7 @@ if 'variableList' not in st.session_state or "variableUnit" not in st.session_st
 
 variableFR = st.selectbox("Choisir la variable à afficher : ", variableListFR, list(variableListFR).index('Biomasse totale'))
 if variableFR != "Cartes de qualité d'habitat pour l'orignal":
-    familyArea = st.selectbox("Choisir la zone à considérer pour les résultats : ", famillyAreasNames, list(famillyAreasNames).index('Territoire Manawan Entier'))
+    familyArea = st.selectbox("Choisir la zone à considérer pour les résultats : ", famillyAreasNames, list(famillyAreasNames).index('Région de Manawan entière'))
 # otherVariable = st.selectbox("Choose the variable to display : ", st.session_state.dictOfValuesForBasicMeasures.keys())
 biomassHarvest = st.selectbox("Choisir l'intensité de la récolte : ", dictTransformBioHarvest.keys(), 1)
 cutRegime = st.selectbox("Choisir le régime de coupe : ", dictTransformCutRegim.keys(), 0)
