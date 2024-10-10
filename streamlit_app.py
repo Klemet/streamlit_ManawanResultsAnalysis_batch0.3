@@ -38,6 +38,7 @@ import rasterio
 from scipy.ndimage import zoom
 # import skimage
 import pydeck as pdk
+import geopandas
 
 matplotlib.use('agg')
 #%% CHECK PASSWORD
@@ -893,17 +894,16 @@ def createFigureOfMooseHQI(biomassHarvest, cutRegime, indexType):
 # os.chdir(r"D:\OneDrive - UQAM\1 - Projets\Thèse - Simulations Manawan projet DIVERSE\3 - Résultats\Streamlit_Results_Apps\batch0.3_results_analysis_GITHUB\streamlit_ManawanResultsAnalysis_batch0.3")
 
 # We only load the dictionnary if not already loaded
-if 'dictOfValuesForBasicMeasures' not in st.session_state:
-    with open("./data/basicResults/encrypted_Batch_0.3_dictOfValuesForBasicMeasures.txt", "rb") as f:
-        # Decrypt the data from memory
-        file_contents = f.read()
-        decrypted_data = Fernet(st.secrets["data_batch0_3_password"].encode()).decrypt(file_contents)
-        retrieved_dict = pickle.loads(decrypted_data)
-    
-    # print(retrieved_dict)
-    
-    # We put the variable in st.session; this way, no need to re-do this part if already loaded.
-    st.session_state.dictOfValuesForBasicMeasures = retrieved_dict
+with open("./data/basicResults/encrypted_Batch_0.3_dictOfValuesForBasicMeasures.txt", "rb") as f:
+    # Decrypt the data from memory
+    file_contents = f.read()
+    decrypted_data = Fernet(st.secrets["data_batch0_3_password"].encode()).decrypt(file_contents)
+    retrieved_dict = pickle.loads(decrypted_data)
+
+# print(retrieved_dict)
+
+# We put the variable in st.session; this way, no need to re-do this part if already loaded.
+st.session_state.dictOfValuesForBasicMeasures = retrieved_dict
 
 # We also retrieve the encrypted geodataframe
 if 'geoDataFrame_areas_Manawan' not in st.session_state:
@@ -912,6 +912,9 @@ if 'geoDataFrame_areas_Manawan' not in st.session_state:
         file_contents = f.read()
         decrypted_data = Fernet(st.secrets["data_batch0_3_password"].encode()).decrypt(file_contents)
         geoDataFrame_areas_Manawan = pickle.loads(decrypted_data)
+        # If the reading of the geodataframe doesn't work : Might be corrupted, or potential issue
+        # with different versions of geopandas.
+        # Just re-generate it.
         
     st.session_state.geoDataFrame_areas_Manawan = geoDataFrame_areas_Manawan
 
@@ -922,71 +925,135 @@ st.markdown("<h1 style='text-align: center;'>" + "📊 Visualisateur de résulta
 st.markdown("<p style='text-align: left;'>" + "👋 Bienvenue ! Cet outil vous permet de visualiser des résultats de simulation de LANDIS-II pour la zone de Manawan et les territoires familiaux qu'elle contient." + "</p>", unsafe_allow_html=True)
 st.markdown("<p style='text-align: left;'>" + "➡️ Selectionnez à l'aide des listes déroulantes ci-dessous la variable que vous voulez afficher, la zone que vous voulez considérer, et le scénario de récolte." + "</p>", unsafe_allow_html=True)
 st.markdown("<p style='text-align: left;'>" + "📈 Les résultats afficherons ensuite les changements de la variable pour les 3 scénarios climatiques : Baseline (pas de changement climatique), RCP 4.5 (changement climatique) et RCP 8.5 (changement climatique intense)." + "</p>", unsafe_allow_html=True)
+experimentalScenarios = st.checkbox('🧪 Cliquez ici pour afficher les résultats des scénarios expérimentaux. Ces scénarios sont souvent fait pour répondre à des questions précises demandées par des collaborateurs, et n\'ont pas le meme format que les autres. **On vous recommende de laisser cela décoché sauf si on vous a indiqué de le faire pour répondre a l\'une de vos question**.')
 st.markdown("<p style='text-align: left;'><i>" + "Version actuelle des simulations : v0.3" + "</i></p>", unsafe_allow_html=True)
 st.markdown("</br></br>", unsafe_allow_html=True)
 
 #%% ASKING FOR VARIABLES TO DISPLAY
 
-if 'variableList' not in st.session_state or "variableUnit" not in st.session_state:
-    # We make the list of unique variables
-    variableList = st.session_state.dictOfValuesForBasicMeasures.keys()
-    char_to_remove = ' - '
-    variableList = [s.split(char_to_remove)[0] for s in variableList]
-    variableList = list(set(variableList))
-    for variabletoHide in variablesToHide:
-        variableList.remove(variabletoHide)
-    # Putting the list in nice format
-    variableListFR = list()
-    for variable in variableList:
-        variableListFR.append(variablesENtoFR[variable])
-    # We add the "HQI moose map" variable
-    variableListFR.append("Cartes de qualité d'habitat pour l'orignal")
-    variableListFR.append("Aire des différents types de forêt")
-    variableListFR = sorted(list(set(variableListFR)))
-    
-    # We make the list of familly territories
-    famillyAreasNames = st.session_state.dictOfValuesForBasicMeasures.keys()
-    char_to_remove = ' - '
-    famillyAreasNames = [s.split(char_to_remove)[1] for s in famillyAreasNames]
-    famillyAreasNames.remove("Territoire Manawan Entier")
-    famillyAreasNames = sorted(list(set(famillyAreasNames)))
 
-    # Dictionnary of variables units
-    variableUnit = dict()
-    for variable in variableListFR:
-        if "Biomasse" in variable:
-            variableUnit[variable] = "(Tonnes)"
-        elif "Age" in variable:
-            variableUnit[variable] = "(Année)"
-        elif "forêt" in variable or "Surface" in variable or "érablière" in variable:
-            variableUnit[variable] = "(Hectares)"
-        else:
-            variableUnit[variable] = ""
-            
-    # Dictionnaries to transform things back to select things
-    dictTransformBioHarvest = {"50% du volume récolté habituellement":"BAU50%",
-                               "100% du volume récolté habituellement":"BAU100%",
-                               "200% du volume récolté habituellement":"BAU200%"}
+if not experimentalScenarios:
+    if 'variableList' not in st.session_state or "variableUnit" not in st.session_state:
+        # We make the list of unique variables
+        variableList = st.session_state.dictOfValuesForBasicMeasures.keys()
+        char_to_remove = ' - '
+        variableList = [s.split(char_to_remove)[0] for s in variableList]
+        variableList = list(set(variableList))
+        for variabletoHide in variablesToHide:
+            variableList.remove(variabletoHide)
+        # Putting the list in nice format
+        variableListFR = list()
+        for variable in variableList:
+            variableListFR.append(variablesENtoFR[variable])
+        # We add the "HQI moose map" variable
+        variableListFR.append("Cartes de qualité d'habitat pour l'orignal")
+        variableListFR.append("Aire des différents types de forêt")
+        variableListFR = sorted(list(set(variableListFR)))
+        
+        # We make the list of familly territories
+        famillyAreasNames = st.session_state.dictOfValuesForBasicMeasures.keys()
+        char_to_remove = ' - '
+        famillyAreasNames = [s.split(char_to_remove)[1] for s in famillyAreasNames]
+        if "Territoire Manawan Entier" in famillyAreasNames:
+            famillyAreasNames.remove("Territoire Manawan Entier")
+        famillyAreasNames = sorted(list(set(famillyAreasNames)))
     
-    dictTransformCutRegim = {"Normal (régime de coupes actuel)":"Normal",
-                             "Coupes à blanc deux fois plus fréquentes":"ClearCutsPlus",
-                             "Coupes partielles deux fois plus fréquentes":"PartialCutsPlus"}
+        # Dictionnary of variables units
+        variableUnit = dict()
+        for variable in variableListFR:
+            if "Biomasse" in variable:
+                variableUnit[variable] = "(Tonnes)"
+            elif "Age" in variable:
+                variableUnit[variable] = "(Année)"
+            elif "forêt" in variable or "Surface" in variable or "érablière" in variable:
+                variableUnit[variable] = "(Hectares)"
+            else:
+                variableUnit[variable] = ""
+                
+        # Dictionnaries to transform things back to select things
+        dictTransformBioHarvest = {"50% du volume récolté habituellement":"BAU50%",
+                                   "100% du volume récolté habituellement":"BAU100%",
+                                   "200% du volume récolté habituellement":"BAU200%"}
+        
+        dictTransformCutRegim = {"Normal (régime de coupes actuel)":"Normal",
+                                 "Coupes à blanc deux fois plus fréquentes":"ClearCutsPlus",
+                                 "Coupes partielles deux fois plus fréquentes":"PartialCutsPlus"}
+        
+        dictTransformClimateScenario = {"Baseline (sans changement climatiques)":"Baseline",
+                                        "RCP 4.5 (changements climatiques modérés)":"RCP45",
+                                        "RCP 8.5 (changements climatiques sévères)":"RCP85"}
     
-    dictTransformClimateScenario = {"Baseline (sans changement climatiques)":"Baseline",
-                                    "RCP 4.5 (changements climatiques modérés)":"RCP45",
-                                    "RCP 8.5 (changements climatiques sévères)":"RCP85"}
+    variableFR = st.selectbox("Choisir la variable à afficher : ", variableListFR, list(variableListFR).index('Biomasse totale'))
+    if variableFR != "Cartes de qualité d'habitat pour l'orignal":
+        familyArea = st.selectbox("Choisir la zone à considérer pour les résultats : ", famillyAreasNames, list(famillyAreasNames).index('Région de Manawan entière'))
+    # otherVariable = st.selectbox("Choose the variable to display : ", st.session_state.dictOfValuesForBasicMeasures.keys())
+    biomassHarvest = st.selectbox("Choisir l'intensité de la récolte : ", dictTransformBioHarvest.keys(), 1)
+    cutRegime = st.selectbox("Choisir le régime de coupe : ", dictTransformCutRegim.keys(), 0)
+    if variableFR == "Cartes de qualité d'habitat pour l'orignal":
+        indexType = st.selectbox("Choisir un l'indice à utiliser pour la qualité d'habitat pour l'orignal : ",
+                                       ["DUSSAULT", "KOITZSCH"],
+                                       0)
+    # climateScenario = st.selectbox("Choose the climate scenario : ", ["Baseline", "RCP 4.5", "RCP 8.5"])
 
-variableFR = st.selectbox("Choisir la variable à afficher : ", variableListFR, list(variableListFR).index('Biomasse totale'))
-if variableFR != "Cartes de qualité d'habitat pour l'orignal":
-    familyArea = st.selectbox("Choisir la zone à considérer pour les résultats : ", famillyAreasNames, list(famillyAreasNames).index('Région de Manawan entière'))
-# otherVariable = st.selectbox("Choose the variable to display : ", st.session_state.dictOfValuesForBasicMeasures.keys())
-biomassHarvest = st.selectbox("Choisir l'intensité de la récolte : ", dictTransformBioHarvest.keys(), 1)
-cutRegime = st.selectbox("Choisir le régime de coupe : ", dictTransformCutRegim.keys(), 0)
-if variableFR == "Cartes de qualité d'habitat pour l'orignal":
-    indexType = st.selectbox("Choisir un l'indice à utiliser pour la qualité d'habitat pour l'orignal : ",
-                                   ["DUSSAULT", "KOITZSCH"],
-                                   0)
-# climateScenario = st.selectbox("Choose the climate scenario : ", ["Baseline", "RCP 4.5", "RCP 8.5"])
+if experimentalScenarios:
+    # We ask for the scenario
+    listOfExperimentalScenarios = ["RCP 8.5 - sans coupes"]
+    experimentalScenario = st.selectbox("🧪 Choisir le scénario expérimental : ", listOfExperimentalScenarios, 0)
+    # We load the data file associated with the scenario
+    if experimentalScenario == "RCP 8.5 - sans coupes":
+        with open("./data/experimentalScenarios/encrypted_Batch_0.3_RCP8.5-NoCuts_dictOfValuesForBasicMeasures.txt", "rb") as f:
+            # Decrypt the data from memory
+            file_contents = f.read()
+            decrypted_data = Fernet(st.secrets["data_batch0_3_password"].encode()).decrypt(file_contents)
+            retrieved_dict = pickle.loads(decrypted_data)
+        st.session_state.dictOfValuesForBasicMeasures = retrieved_dict
+        
+        # We ask for the variable to explore
+        variableList = st.session_state.dictOfValuesForBasicMeasures.keys()
+        char_to_remove = ' - '
+        variableList = [s.split(char_to_remove)[0] for s in variableList]
+        variableList = list(set(variableList))
+        for variabletoHide in variablesToHide:
+            variableList.remove(variabletoHide)
+        # Putting the list in nice format
+        variableListFR = list()
+        for variable in variableList:
+            variableListFR.append(variablesENtoFR[variable])
+        # We add the "HQI moose map" variable
+        # variableListFR.append("Cartes de qualité d'habitat pour l'orignal")
+        variableListFR.append("Aire des différents types de forêt")
+        variableListFR = sorted(list(set(variableListFR)))
+        variableFR = st.selectbox("Choisir la variable à afficher : ", variableListFR, list(variableListFR).index('Biomasse totale'))
+    
+        # We ask for the familly territory
+        famillyAreasNames = st.session_state.dictOfValuesForBasicMeasures.keys()
+        char_to_remove = ' - '
+        famillyAreasNames = [s.split(char_to_remove)[1] for s in famillyAreasNames]
+        # famillyAreasNames.remove("Territoire Manawan Entier")
+        famillyAreasNames = sorted(list(set(famillyAreasNames)))
+        familyArea = st.selectbox("Choisir la zone à considérer pour les résultats : ", famillyAreasNames, list(famillyAreasNames).index('Région de Manawan entière'))
+        
+        # We set up the other variables to send everything to the functions that
+        # produce the figures
+        variableUnit = dict()
+        for variable in variableListFR:
+            if "Biomasse" in variable:
+                variableUnit[variable] = "(Tonnes)"
+            elif "Age" in variable:
+                variableUnit[variable] = "(Année)"
+            elif "forêt" in variable or "Surface" in variable or "érablière" in variable:
+                variableUnit[variable] = "(Hectares)"
+            else:
+                variableUnit[variable] = ""
+        biomassHarvest = "Sans bois récolté"
+        cutRegime = "Sans interventions forestières (coupes, etc.)"
+        
+        dictTransformBioHarvest = {"Sans bois récolté":"BAU100%"} #Special case; we rename as this special scenario had no cuts.
+        
+        dictTransformCutRegim = {"Sans interventions forestières (coupes, etc.)":"Normal"} #Special case; we rename as this special scenario had no cuts.
+        
+        dictTransformClimateScenario = {"RCP 8.5 (changements climatiques sévères)":"RCP85"}
+        
 
 #%% DISPLAYING GRAPHS OF BASIC MEASURES
 
@@ -1010,37 +1077,68 @@ if variableFR != "Cartes de qualité d'habitat pour l'orignal" and variableFR !=
     #               color=["#5e81ac", "#DCA22E", "#bf616a"], width=0, height=0,
     #               use_container_width=True)
     
-    
-    listOfTimesteps = range(0, 110, 10)
-    listOfMeanDataSeries = [st.session_state.dictOfValuesForBasicMeasures[variableFinal][dictTransformBioHarvest[biomassHarvest]][dictTransformCutRegim[cutRegime]][list(dictTransformClimateScenario.values())[0]]["Mean"],
-                            st.session_state.dictOfValuesForBasicMeasures[variableFinal][dictTransformBioHarvest[biomassHarvest]][dictTransformCutRegim[cutRegime]][list(dictTransformClimateScenario.values())[1]]["Mean"],
-                            st.session_state.dictOfValuesForBasicMeasures[variableFinal][dictTransformBioHarvest[biomassHarvest]][dictTransformCutRegim[cutRegime]][list(dictTransformClimateScenario.values())[2]]["Mean"]]
-    listOfSDSeries = [st.session_state.dictOfValuesForBasicMeasures[variableFinal][dictTransformBioHarvest[biomassHarvest]][dictTransformCutRegim[cutRegime]][list(dictTransformClimateScenario.values())[0]]["SD"],
-                      st.session_state.dictOfValuesForBasicMeasures[variableFinal][dictTransformBioHarvest[biomassHarvest]][dictTransformCutRegim[cutRegime]][list(dictTransformClimateScenario.values())[1]]["SD"],
-                      st.session_state.dictOfValuesForBasicMeasures[variableFinal][dictTransformBioHarvest[biomassHarvest]][dictTransformCutRegim[cutRegime]][list(dictTransformClimateScenario.values())[2]]["SD"]]
-    listOfColors = ["#5e81ac", "#DCA22E", "#bf616a"]
-    listOfDataSeriesNames = ["Baseline", "RCP 4.5", "RCP 8.5"]
-    
-    chartsCurvesAndConfidence = CreateAltairChartWithMeanAndSD(listOfTimesteps,
-                                                               listOfDataSeriesNames,
-                                                               listOfMeanDataSeries,
-                                                               listOfSDSeries,
-                                                               listOfColors,
-                                                               ["Baseline", "RCP 4.5", "RCP 8.5"],
-                                                               variableFR + " " + variableUnit[variableFR])
-    
-    # We display map with family area of interest
-    displayPydeckMp(st.session_state.geoDataFrame_areas_Manawan, familyArea)
-    
-    # We display a title
-    st.markdown("<h4 style='text-align: center;'>" +
-                "Variation de " + str(variableFR) +
-                # " in area of " + str(familyArea) +
-                " pour le scénario de récolte " + str(biomassHarvest) + " et " + str(cutRegime) +
-                " à travers les 3 scénarios climatiques" + "</h4>", unsafe_allow_html=True)
+    # Case if we're using the normal scenarios
+    if not experimentalScenarios:
+        listOfTimesteps = range(0, 110, 10)
+        listOfMeanDataSeries = [st.session_state.dictOfValuesForBasicMeasures[variableFinal][dictTransformBioHarvest[biomassHarvest]][dictTransformCutRegim[cutRegime]][list(dictTransformClimateScenario.values())[0]]["Mean"],
+                                st.session_state.dictOfValuesForBasicMeasures[variableFinal][dictTransformBioHarvest[biomassHarvest]][dictTransformCutRegim[cutRegime]][list(dictTransformClimateScenario.values())[1]]["Mean"],
+                                st.session_state.dictOfValuesForBasicMeasures[variableFinal][dictTransformBioHarvest[biomassHarvest]][dictTransformCutRegim[cutRegime]][list(dictTransformClimateScenario.values())[2]]["Mean"]]
+        listOfSDSeries = [st.session_state.dictOfValuesForBasicMeasures[variableFinal][dictTransformBioHarvest[biomassHarvest]][dictTransformCutRegim[cutRegime]][list(dictTransformClimateScenario.values())[0]]["SD"],
+                          st.session_state.dictOfValuesForBasicMeasures[variableFinal][dictTransformBioHarvest[biomassHarvest]][dictTransformCutRegim[cutRegime]][list(dictTransformClimateScenario.values())[1]]["SD"],
+                          st.session_state.dictOfValuesForBasicMeasures[variableFinal][dictTransformBioHarvest[biomassHarvest]][dictTransformCutRegim[cutRegime]][list(dictTransformClimateScenario.values())[2]]["SD"]]
+        listOfColors = ["#5e81ac", "#DCA22E", "#bf616a"]
+        listOfDataSeriesNames = ["Baseline", "RCP 4.5", "RCP 8.5"]
+        
+        chartsCurvesAndConfidence = CreateAltairChartWithMeanAndSD(listOfTimesteps,
+                                                                   listOfDataSeriesNames,
+                                                                   listOfMeanDataSeries,
+                                                                   listOfSDSeries,
+                                                                   listOfColors,
+                                                                   ["Baseline", "RCP 4.5", "RCP 8.5"],
+                                                                   variableFR + " " + variableUnit[variableFR])
+        
+        # We display map with family area of interest
+        displayPydeckMp(st.session_state.geoDataFrame_areas_Manawan, familyArea)
+        
+        # We display a title
+        st.markdown("<h4 style='text-align: center;'>" +
+                    "Variation de " + str(variableFR) +
+                    # " in area of " + str(familyArea) +
+                    " pour le scénario de récolte " + str(biomassHarvest) + " et " + str(cutRegime) +
+                    " à travers les 3 scénarios climatiques" + "</h4>", unsafe_allow_html=True)
+        
+        # We display the chart
+        st.altair_chart(chartsCurvesAndConfidence, use_container_width=True)
 
-    # We display the chart
-    st.altair_chart(chartsCurvesAndConfidence, use_container_width=True)
+        
+        
+    elif experimentalScenarios and experimentalScenario == "RCP 8.5 - sans coupes":
+        listOfTimesteps = range(0, 110, 10)
+        listOfMeanDataSeries = [st.session_state.dictOfValuesForBasicMeasures[variableFinal][dictTransformBioHarvest[biomassHarvest]][dictTransformCutRegim[cutRegime]]["RCP85"]["Mean"]]
+        listOfSDSeries = [st.session_state.dictOfValuesForBasicMeasures[variableFinal][dictTransformBioHarvest[biomassHarvest]][dictTransformCutRegim[cutRegime]]["RCP85"]["SD"]]
+        listOfColors = ["#bf616a"]
+        listOfDataSeriesNames = ["RCP 8.5"]
+        
+        chartsCurvesAndConfidence = CreateAltairChartWithMeanAndSD(listOfTimesteps,
+                                                                   listOfDataSeriesNames,
+                                                                   listOfMeanDataSeries,
+                                                                   listOfSDSeries,
+                                                                   listOfColors,
+                                                                   ["RCP 8.5"],
+                                                                   variableFR + " " + variableUnit[variableFR])
+        # We display map with family area of interest
+        displayPydeckMp(st.session_state.geoDataFrame_areas_Manawan, familyArea)
+        
+        # We display a title
+        st.markdown("<h4 style='text-align: center;'>" +
+                    "Variation de " + str(variableFR) +
+                    # " in area of " + str(familyArea) +
+                    " pour le scénario de récolte expérimental sans coupes forestières" + 
+                    " et avec un scénario climatique RCP 8.5" + "</h4>", unsafe_allow_html=True)
+
+
+        # We display the chart
+        st.altair_chart(chartsCurvesAndConfidence, use_container_width=True)
 
 
 #%% DISPLAYING MAPS OF MOOSE HQI 
